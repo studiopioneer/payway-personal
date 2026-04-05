@@ -1,0 +1,30 @@
+node_modules/
+.DS_Store
+*.local
+
+# Vite build cache
+.vite/
+
+# Keep assets/ folder in git (built bundle is committed for WordPress deployment)
+# If you prefer not to commit built files, uncomment the line below:
+# assets/
+
+# Editor directories
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment files
+.env
+.env.local
+.env.*.local

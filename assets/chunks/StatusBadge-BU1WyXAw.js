@@ -1,4 +1,4 @@
-import{a as k,b as y,f}from"./index-ruk6Wk5P.js";import{i as S,o,l as m,u as p,B as b,c as s,x as i,y as $,e as g,A as w,a as P,t as v,b as z,h as c}from"../index.js";const U={__name:"NavigateButton",props:{label:{type:String,required:!0},to:{type:String,required:!0}},setup(t){const e=S();return(n,r)=>(o(),m(p(k),{type:"button",label:t.label,class:"bg-blue-500 hover:bg-blue-600 border-blue-600 hover:border-blue-700",size:"small",onClick:r[0]||(r[0]=d=>p(e).push(t.to))},null,8,["label"]))}};var j=`
+import{a as k,b as y,f}from"./index-AwaE86IY.js";import{i as S,o,l as m,u as p,B as b,c as s,x as i,y as $,e as g,A as w,a as P,t as v,b as z,h as c}from"../index-DzY-fOy8.js";const U={__name:"NavigateButton",props:{label:{type:String,required:!0},to:{type:String,required:!0}},setup(t){const e=S();return(n,r)=>(o(),m(p(k),{type:"button",label:t.label,class:"bg-blue-500 hover:bg-blue-600 border-blue-600 hover:border-blue-700",size:"small",onClick:r[0]||(r[0]=d=>p(e).push(t.to))},null,8,["label"]))}};var j=`
     .p-skeleton {
         display: block;
         overflow: hidden;

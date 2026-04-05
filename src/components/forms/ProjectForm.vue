@@ -5,11 +5,12 @@
       Здесь можно добавить проекты, которые вы хотите монетизировать с помощью payway.store. Пожалуйста, заполняйте поля подробно, отвечая на все вопросы по вашему типу проекта.
     </div>
     <form @submit.prevent="handleSubmit" class="p-fluid">
-      <div class="grid">
+      <div class="grid formgrid">
         <div class="col-12 md:col-6">
-          <div class="field">
+          <div class="field flex flex-column gap-2">
             <label for="url">Ссылка на проект (обязательно)</label>
             <InputText
+            class="w-full"
               id="url"
               name="url"
               v-model="form.url"
@@ -21,9 +22,10 @@
             <small v-if="errors.url" class="p-error block">{{ errors.url }}</small>
             <small class="p-text-secondary">Ссылка на ваш сайт, YouTube канал, приложение и т.д.</small>
           </div>
-          <div class="field">
+          <div class="field flex flex-column gap-2">
             <label for="amount">Оборот проекта в месяц (в долларах)</label>
             <InputNumber
+            class="w-full"
               id="amount"
               name="amount"
               v-model="form.amount"
@@ -37,9 +39,10 @@
             <small v-if="errors.amount" class="p-error block">{{ errors.amount }}</small>
             <small class="p-text-secondary">Была ли монетизация этого проекта? Если да, какой примерно был оборот в месяц (в долларах).</small>
           </div>
-          <div class="field">
+          <div class="field flex flex-column gap-2">
             <label for="contacts">Укажите, как с вами можно связаться? (обязательно)</label>
             <InputText
+            class="w-full"
               id="contacts"
               name="contacts"
               v-model="form.contacts"
@@ -53,9 +56,10 @@
           </div>
         </div>
         <div class="col-12 md:col-6">
-          <div class="field">
+          <div class="field flex flex-column gap-2">
             <label for="count_users">Количество активных пользователей</label>
             <InputText
+            class="w-full"
               id="count_users"
               name="count_users"
               v-model="form.count_users"
@@ -66,9 +70,10 @@
             <small v-if="errors.count_users" class="p-error block">{{ errors.count_users }}</small>
             <small class="p-text-secondary">Приблизительное количество ежемесячных пользователей.</small>
           </div>
-          <div class="field">
+          <div class="field flex flex-column gap-2">
             <label for="comments">Комментарий</label>
             <Textarea
+            class="w-full"
               id="comments"
               name="comments"
               v-model="form.comments"

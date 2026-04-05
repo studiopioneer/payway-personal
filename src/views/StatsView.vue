@@ -13,6 +13,8 @@
         <Dropdown
           v-model="selectedMonth"
           :options="months"
+            optionLabel="label"
+            optionValue="value"
           @change="onMonthChange"
           placeholder="Выберите месяц"
           :disabled="loading"

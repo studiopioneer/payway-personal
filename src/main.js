@@ -8,6 +8,12 @@ import router from './router'
 import App from './App.vue'
 
 import 'primeicons/primeicons.css'
+import 'primeflex/primeflex.css'
+
+// Global sans-serif font override
+const style = document.createElement('style')
+style.textContent = 'body, html, #root, * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important; }'
+document.head.appendChild(style)
 
 const app = createApp(App)
 

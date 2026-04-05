@@ -118,10 +118,48 @@
         </div>
       </div>
 
+      <!-- Balance display -->
+
+
+      <div v-if="userStore.balance !== null" class="mt-3 mb-2">
+
+
+        <span :style="{ color: userStore.balance >= 0 ? 'green' : 'red' }" class="font-semibold">
+
+
+          Ваш баланс: ${{ userStore.formatBalance(userStore.balance) }}
+
+
+        </span>
+
+
+      </div>
+
+
+      <div v-if="isOverBalance" class="mb-2">
+
+
+        <span class="text-red-500 text-sm">Сумма вывода превышает ваш баланс. Пожалуйста, укажите меньшую сумму.</span>
+
+
+      </div>
+
+
       <Button
-        type="submit"
-        label="Создать заявку"
-        class="mt-3 bg-blue-500 hover:bg-blue-600 border-blue-600 hover:border-blue-700"
+
+
+          type="submit"
+
+
+          label="Создать заявку"
+
+
+          class="mt-3 bg-blue-500 hover:bg-blue-600 border-blue-600 hover:border-blue-700"
+
+
+          :disabled="isOverBalance"
+
+
       />
     </form>
   </div>
@@ -137,12 +175,22 @@ import Button from 'primevue/button'
 import Toast from 'primevue/toast'
 import api from '@/api/index.js'
 import { useToastStore } from '@/stores/toast.js'
+import { useUserStore } from '@/stores/user.js'
 
 const router = useRouter()
 const toastStore = useToastStore()
+const userStore = useUserStore()
 const toastRef = ref(null)
 
 const amount = ref(0)
+
+onMounted(() => {
+  userStore.fetchBalance()
+})
+
+const isOverBalance = computed(() => {
+  return userStore.balance !== null && amount.value > userStore.balance
+})
 const paymentDetails = ref('')
 const comments = ref('')
 const paymentType = ref('swift')

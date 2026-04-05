@@ -100,6 +100,8 @@ class Payway_Activator
                 FOREIGN KEY (project_id) REFERENCES {$wpdb->prefix}payway_projects(id) ON DELETE CASCADE
             ) $charset_collate;"
 
+    ];
+
         $tables[] = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}payway_referrals (
             id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
             referrer_id BIGINT(20) UNSIGNED NOT NULL,
@@ -110,7 +112,6 @@ class Payway_Activator
             KEY referrer_id (referrer_id),
             KEY referral_code (referral_code)
         ) $charset_collate;";
-        ];
 
         // Выполняем SQL для каждой таблицы
         foreach ($tables as $sql) {
@@ -137,6 +138,8 @@ class Payway_Activator
             'payway_unlock' => 'status',
             'payway_withdrawal' => 'status'
 
+    ];
+
         $tables[] = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}payway_referrals (
             id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
             referrer_id BIGINT(20) UNSIGNED NOT NULL,
@@ -147,7 +150,6 @@ class Payway_Activator
             KEY referrer_id (referrer_id),
             KEY referral_code (referral_code)
         ) $charset_collate;";
-        ];
 
         // Проверяем и обновляем каждую таблицу
         foreach ($tables as $table_suffix => $column_name) {
@@ -184,6 +186,8 @@ class Payway_Activator
             ['slug' => 'projects', 'title' => 'Мои проекты'],
             ['slug' => 'stats', 'title' => 'Статистика']
 
+    ];
+
         $tables[] = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}payway_referrals (
             id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
             referrer_id BIGINT(20) UNSIGNED NOT NULL,
@@ -194,7 +198,6 @@ class Payway_Activator
             KEY referrer_id (referrer_id),
             KEY referral_code (referral_code)
         ) $charset_collate;";
-        ];
 
         foreach ($pages as $page) {
             $existing_page = get_page_by_path($page['slug']);

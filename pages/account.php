@@ -13,8 +13,8 @@
     <link rel="icon" type="image/svg+xml" href="https://payway.store/wp-content/uploads/2024/08/pwlogo-blue.png"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Payway личный кабинет</title>
-  <script type="module" charset="utf-8" crossorigin src="<?php echo PAYWAY_PLUGIN_URL; ?>/assets/index-ButiBV7A.js"></script>
-  <link rel="stylesheet" crossorigin href="<?php echo PAYWAY_PLUGIN_URL; ?>/assets/index-B0JSrvR6.css">
+  <script type="module" charset="utf-8" crossorigin src="<?php echo PAYWAY_PLUGIN_URL; ?>/assets/index.js"></script>
+  <link rel="stylesheet" crossorigin href="<?php echo PAYWAY_PLUGIN_URL; ?>/assets/index.css">
 </head>
 <body>
 <div id="root"></div>

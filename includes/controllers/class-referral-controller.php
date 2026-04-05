@@ -3,7 +3,7 @@ require_once __DIR__ . '/class-base-controller.php';
 
 class ReferralController extends BaseController {
 
-    public function handle_get_request( $request ) {
+    public function handle_get_request(): WP_REST_Response {
         $user_id = get_current_user_id();
         if ( ! $user_id ) {
             return new WP_Error( 'not_logged_in', 'Not authenticated', [ 'status' => 401 ] );
@@ -39,4 +39,7 @@ class ReferralController extends BaseController {
         );
         return rest_ensure_response( [ 'data' => $rows ?: [] ] );
     }
+    protected function validate_request_data(): bool { return true; }
+    protected function sanitize_request_data(): array { return []; }
+    protected function format_response_data(array $items): array { return $items; }
 }

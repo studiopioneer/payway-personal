@@ -140,24 +140,31 @@ class PaywayRestApi
 
 
         // Referral routes
-        require_once STARTER_PLUGIN_DIR . 'includes/controllers/class-referral-controller.php';
-        $referral = new ReferralController();
-
+        require_once PAYWAY_PLUGIN_DIR . '/includes/controllers/class-referral-controller.php';
         register_rest_route( 'payway/v1', '/referrals/link', [
             'methods'  => 'GET',
-            'callback' => [ $referral, 'handle_get_request' ],
+            'callback' => function( WP_REST_Request $request ) {
+                $referral = new ReferralController( $request );
+                return $referral->handle_get_request();
+            },
             'permission_callback' => function() { return is_user_logged_in(); },
         ]);
 
         register_rest_route( 'payway/v1', '/referrals/list', [
             'methods'  => 'GET',
-            'callback' => [ $referral, 'get_my_referrals' ],
+            'callback' => function( WP_REST_Request $request ) {
+                $referral = new ReferralController( $request );
+                return $referral->get_my_referrals( $request );
+            },
             'permission_callback' => function() { return is_user_logged_in(); },
         ]);
 
         register_rest_route( 'payway/v1', '/referrals/all', [
             'methods'  => 'GET',
-            'callback' => [ $referral, 'get_all_referrals' ],
+            'callback' => function( WP_REST_Request $request ) {
+                $referral = new ReferralController( $request );
+                return $referral->get_all_referrals( $request );
+            },
             'permission_callback' => function() { return current_user_can( 'manage_options' ); },
         ]);
         register_rest_route('payway/v1', $route_name, [

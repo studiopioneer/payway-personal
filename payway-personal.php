@@ -38,6 +38,7 @@ require_once(PAYWAY_PLUGIN_DIR . '/includes/ajax-handlers/withdrawal.php');
 
 // Rest
 require_once(PAYWAY_PLUGIN_DIR . '/includes/class-rest-api.php');
+require_once(PAYWAY_PLUGIN_DIR . '/includes/controllers/class-referral-controller.php');
 
 add_filter('show_admin_bar', function ($show) {
     return current_user_can('administrator');
@@ -52,6 +53,7 @@ add_action('admin_menu', function () {
     require_once(PAYWAY_PLUGIN_DIR . '/admin/pages/class-stats-page.php');
     require_once(PAYWAY_PLUGIN_DIR . '/admin/pages/class-income-page.php');
     require_once(PAYWAY_PLUGIN_DIR . '/admin/pages/class-users-columns.php');
+    require_once(PAYWAY_PLUGIN_DIR . '/admin/pages/class-referral-page.php');
 
     Payway\Pages\ProjectsPage::init();
     Payway\Pages\UnlockPage::init();

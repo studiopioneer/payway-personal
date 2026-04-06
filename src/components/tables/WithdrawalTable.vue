@@ -16,6 +16,8 @@
       class="text-sm"
       @page="onPageChange"
       @sort="onSortChange"
+        :sortField="sortField"
+        :sortOrder="sortOrder"
       @row-edit-save="onRowEditComplete"
     >
       <Column field="time" header="Дата/время" :sortable="true"
@@ -122,8 +124,8 @@ async function fetchData() {
       params: {
         page: page.value,
         per_page: rows.value,
-        sort_field: sortField.value,
-        sort_order: sortOrder.value
+        order_by: sortField.value,
+        order: sortOrder.value === -1 ? 'DESC' : 'ASC'
       }
     })
     data.value = resp.data.data || resp.data

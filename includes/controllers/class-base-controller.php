@@ -192,7 +192,7 @@ abstract class BaseController
         $page = (int)$this->request->get_param('page') ?? 1;
         $per_page = (int)$this->request->get_param('per_page') ?? 10;
         $order_by = $this->request->get_param('order_by') ?? 'time';
-        $order = strtoupper($this->request->get_param('order')) === 'DESC' ? 'DESC' : 'ASC';
+        $order = strtoupper($this->request->get_param('order')) === 'ASC' ? 'ASC' : 'DESC';
 
         // Валидация имени столбца для сортировки
         $allowed_columns = ['time', 'amount', 'payment_type', 'status']; // Пример допустимых столбцов

@@ -127,7 +127,7 @@
         <span :style="{ color: userStore.balance >= 0 ? 'green' : 'red' }" class="font-semibold">
 
 
-          Ваш баланс: ${{ userStore.formatBalance(userStore.balance) }}
+          Ваш баланс: {{ userStore.formatBalance(userStore.balance) }}
 
 
         </span>

@@ -109,6 +109,7 @@ import Password from 'primevue/password'
 import Button from 'primevue/button'
 import Checkbox from 'primevue/checkbox'
 import Toast from 'primevue/toast'
+import { useToast } from 'primevue/usetoast'
 import PaywayLogo from '@/components/PaywayLogo.vue'
 import { useAuth } from '@/composables/useAuth.js'
 import { loginUser, registerUser } from '@/api/auth.js'
@@ -116,6 +117,7 @@ import { loginUser, registerUser } from '@/api/auth.js'
 const router = useRouter()
 const { isAuthenticated, login } = useAuth()
 const toastRef = ref(null)
+const toast = useToast()
 
 const email = ref('')
 const password = ref('')
@@ -132,14 +134,14 @@ watch(isAuthenticated, (val) => {
 
 function handleError(err) {
   if (err.response && err.response.data) {
-    toastRef.value.show({
+    toast.add({
       severity: 'error',
       summary: 'Ошибка',
       detail: err.response.data.message || 'Произошла ошибка',
       life: 3000
     })
   } else {
-    toastRef.value.show({
+    toast.add({
       severity: 'error',
       summary: 'Ошибка соединения',
       detail: 'Сервер недоступен. Попробуйте позже.',
@@ -152,20 +154,20 @@ async function handleSubmit() {
   try {
     if (isRegistration.value) {
       if (password.value !== confirmPassword.value) {
-        toastRef.value.show({ severity: 'error', summary: 'Ошибка', detail: 'Пароли не совпадают', life: 3000 })
+        toast.add({ severity: 'error', summary: 'Ошибка', detail: 'Пароли не совпадают', life: 3000 })
         return
       }
       if (!agreeTerms.value || !agreePrivacy.value) {
-        toastRef.value.show({ severity: 'error', summary: 'Ошибка', detail: 'Необходимо согласиться с условиями', life: 3000 })
+        toast.add({ severity: 'error', summary: 'Ошибка', detail: 'Необходимо согласиться с условиями', life: 3000 })
         return
       }
       await registerUser(email.value, password.value)
-      toastRef.value.show({ severity: 'success', summary: 'Успешно', detail: 'Регистрация прошла успешно!', life: 3000 })
+      toast.add({ severity: 'success', summary: 'Успешно', detail: 'Регистрация прошла успешно!', life: 3000 })
       isRegistration.value = false
     } else {
       const data = await loginUser(email.value, password.value)
       login(data.token)
-      toastRef.value.show({ severity: 'success', summary: 'Успешно', detail: 'Вы успешно авторизовались!', life: 3000 })
+      toast.add({ severity: 'success', summary: 'Успешно', detail: 'Вы успешно авторизовались!', life: 3000 })
       router.push('/account')
     }
   } catch (err) {

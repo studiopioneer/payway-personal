@@ -10,7 +10,7 @@ export async function loginUser(username, password) {
 
 export async function registerUser(email, password) {
   const resp = await axios.post('/wp-json/payway/v1/register', {
-    email,
+    username: email,
     password,
     repassword: password,
   })

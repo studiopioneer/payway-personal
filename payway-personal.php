@@ -3,7 +3,7 @@
 Plugin Name: Payway - личный кабинет
 Plugin URI:  http://yourwebsite.com/my-custom-plugin
 Description: Добавляет авторизацию и личный кабинет пользователя
-Version:     4.4
+Version:           5.5
 Author:      Rus, Alex Kovalev
 Author URI:  null
 License:     GPL2

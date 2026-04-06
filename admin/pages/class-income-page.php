@@ -37,6 +37,21 @@ class Income_Page extends AbstractAdminPage
         echo '<div class="wrap">';
         echo '<h1>' . esc_html($this->page_title) . '</h1>';
 
+        // Show delete notices
+        if (isset($_GET['deleted'])) {
+            if ($_GET['deleted'] === 'true') {
+                $count = isset($_GET['count']) ? absint($_GET['count']) : 1;
+                $amount = isset($_GET['reversed']) ? floatval($_GET['reversed']) : 0;
+                $msg = "Удалено записей: {$count}.";
+                if ($amount > 0) {
+                    $msg .= " Списано с балансов: $" . number_format($amount, 2);
+                }
+                echo '<div class="notice notice-success"><p>' . esc_html($msg) . '</p></div>';
+            } elseif ($_GET['deleted'] === 'false') {
+                echo '<div class="notice notice-error"><p>Не удалось удалить запись!</p></div>';
+            }
+        }
+
         // Show upload results
         if ($upload_result !== null) {
             $this->render_upload_results($upload_result);
@@ -49,6 +64,99 @@ class Income_Page extends AbstractAdminPage
         $this->render_list_table();
 
         echo '</div>';
+    }
+
+    /**
+     * Override base class delete to add balance reversal.
+     * Handles single delete with nonce verification.
+     */
+    public function handle_delete_action(): void
+    {
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+
+        // Single delete
+        if (isset($_GET['action'], $_GET['id']) && $_GET['action'] === 'delete') {
+            $item_id = absint($_GET['id']);
+            if (!$item_id) return;
+
+            // Verify nonce
+            if (!isset($_GET['_wpnonce']) || !wp_verify_nonce($_GET['_wpnonce'], 'payway_delete_income_' . $item_id)) {
+                wp_die('Ошибка безопасности. Попробуйте ещё раз.');
+            }
+
+            $reversed = $this->delete_earning_with_reversal($item_id);
+
+            wp_redirect(add_query_arg([
+                'deleted'  => $reversed !== false ? 'true' : 'false',
+                'count'    => 1,
+                'reversed' => $reversed !== false ? $reversed : 0,
+            ], remove_query_arg(['action', 'id', '_wpnonce'])));
+            exit;
+        }
+
+        // Bulk delete
+        if (isset($_GET['action']) && $_GET['action'] === 'bulk_delete'
+            || isset($_GET['action2']) && $_GET['action2'] === 'bulk_delete') {
+
+            if (empty($_GET['earning_ids']) || !is_array($_GET['earning_ids'])) {
+                return;
+            }
+
+            $ids = array_map('absint', $_GET['earning_ids']);
+            $total_reversed = 0;
+            $count = 0;
+
+            foreach ($ids as $id) {
+                $reversed = $this->delete_earning_with_reversal($id);
+                if ($reversed !== false) {
+                    $total_reversed += $reversed;
+                    $count++;
+                }
+            }
+
+            wp_redirect(add_query_arg([
+                'deleted'  => $count > 0 ? 'true' : 'false',
+                'count'    => $count,
+                'reversed' => $total_reversed,
+            ], remove_query_arg(['action', 'action2', 'earning_ids', '_wpnonce'])));
+            exit;
+        }
+    }
+
+    /**
+     * Deletes a single earning record and reverses the balance if it was credited.
+     *
+     * @param int $id Record ID
+     * @return float|false Amount reversed, or false on failure
+     */
+    private function delete_earning_with_reversal(int $id)
+    {
+        global $wpdb;
+        $table_name = $wpdb->prefix . $this->db_table_name;
+
+        // Get record before deleting
+        $record = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table_name WHERE id = %d", $id), ARRAY_A);
+        if (!$record) {
+            return false;
+        }
+
+        $reversed_amount = 0;
+
+        // Reverse balance only for credited records with a valid user
+        if ($record['status'] === 'credited' && $record['user_id'] > 0) {
+            $earnings = (float) $record['earnings'];
+            $current_balance = (float) get_user_meta($record['user_id'], 'payway_withdrawal_balance', true);
+            $new_balance = max(0, $current_balance - $earnings);
+            update_user_meta($record['user_id'], 'payway_withdrawal_balance', $new_balance);
+            $reversed_amount = $earnings;
+        }
+
+        // Delete the record
+        $deleted = $wpdb->delete($table_name, ['id' => $id], ['%d']);
+
+        return $deleted ? $reversed_amount : false;
     }
 
     /**

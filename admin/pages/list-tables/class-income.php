@@ -19,6 +19,7 @@ class Income_List_Table extends WP_List_Table
     public function get_columns(): array
     {
         return [
+            'cb'         => '<input type="checkbox" />',
             'email'      => 'Email',
             'earnings'   => 'Сумма (USD)',
             'period'     => 'Период',
@@ -35,6 +36,49 @@ class Income_List_Table extends WP_List_Table
             'period'     => ['period', false],
             'status'     => ['status', false],
             'created_at' => ['created_at', true],
+        ];
+    }
+
+    /**
+     * Checkbox column for bulk actions.
+     */
+    public function column_cb($item)
+    {
+        return sprintf('<input type="checkbox" name="earning_ids[]" value="%d" />', absint($item['id']));
+    }
+
+    /**
+     * Email column with row action "Delete".
+     */
+    public function column_email($item)
+    {
+        $delete_url = wp_nonce_url(
+            add_query_arg([
+                'page'   => 'payway-income',
+                'action' => 'delete',
+                'id'     => $item['id'],
+            ], admin_url('admin.php')),
+            'payway_delete_income_' . $item['id']
+        );
+
+        $actions = [
+            'delete' => sprintf(
+                '<a href="%s" style="color:#b32d2e;" onclick="return confirm(\'Удалить эту запись и списать $%s с баланса пользователя?\')">Удалить</a>',
+                esc_url($delete_url),
+                number_format((float)$item['earnings'], 2)
+            ),
+        ];
+
+        return esc_html($item['email']) . $this->row_actions($actions);
+    }
+
+    /**
+     * Bulk actions dropdown.
+     */
+    public function get_bulk_actions(): array
+    {
+        return [
+            'bulk_delete' => 'Удалить выбранные',
         ];
     }
 
@@ -88,8 +132,6 @@ class Income_List_Table extends WP_List_Table
     public function column_default($item, $column_name)
     {
         switch ($column_name) {
-            case 'email':
-                return esc_html($item['email']);
             case 'earnings':
                 return '$' . number_format((float)$item['earnings'], 2);
             case 'period':

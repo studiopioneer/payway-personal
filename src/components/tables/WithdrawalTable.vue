@@ -127,7 +127,7 @@ async function fetchData() {
       }
     })
     data.value = resp.data.data || resp.data
-    totalRecords.value = resp.data.total || resp.data.length
+    totalRecords.value = resp.data.meta?.total_records || 0
   } catch (err) {
     console.error('Error fetching withdrawals:', err)
   } finally {

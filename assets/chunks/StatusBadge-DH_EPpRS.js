@@ -1,4 +1,4 @@
-import{a as k,b as y,f}from"./index-CO33iS76.js";import{j as S,o,m,d as p,B as b,c as s,y as i,z as $,f as g,C as w,a as P,t as v,b as z,i as c}from"../index-Cyi67DgU.js";const U={__name:"NavigateButton",props:{label:{type:String,required:!0},to:{type:String,required:!0}},setup(t){const e=S();return(n,r)=>(o(),m(p(k),{type:"button",label:t.label,class:"bg-blue-500 hover:bg-blue-600 border-blue-600 hover:border-blue-700",size:"small",onClick:r[0]||(r[0]=d=>p(e).push(t.to))},null,8,["label"]))}};var j=`
+import{a as k,b as y,f}from"./index-DowbgmiA.js";import{j as S,o,m,d as p,B as b,c as s,y as i,z as $,f as g,C as w,a as P,t as v,b as z,i as c}from"../index-DIZUxXWS.js";const U={__name:"NavigateButton",props:{label:{type:String,required:!0},to:{type:String,required:!0}},setup(t){const e=S();return(n,r)=>(o(),m(p(k),{type:"button",label:t.label,class:"bg-blue-500 hover:bg-blue-600 border-blue-600 hover:border-blue-700",size:"small",onClick:r[0]||(r[0]=d=>p(e).push(t.to))},null,8,["label"]))}};var j=`
     .p-skeleton {
         display: block;
         overflow: hidden;

@@ -1,6 +1,5 @@
 <template>
   <div>
-    <Toast ref="toastRef" />
     <div class="mt-5 mb-5">
       Здесь можно добавить проекты, которые вы хотите монетизировать с помощью payway.store. Пожалуйста, заполняйте поля подробно, отвечая на все вопросы по вашему типу проекта.
     </div>
@@ -104,13 +103,11 @@ import InputText from 'primevue/inputtext'
 import InputNumber from 'primevue/inputnumber'
 import Textarea from 'primevue/textarea'
 import Button from 'primevue/button'
-import Toast from 'primevue/toast'
 import api from '@/api/index.js'
 import { useToastStore } from '@/stores/toast.js'
 
 const router = useRouter()
 const toastStore = useToastStore()
-const toastRef = ref(null)
 
 const form = reactive({
   url: '',
@@ -163,12 +160,7 @@ async function handleSubmit() {
   })
   if (Object.keys(validationErrors).length > 0) {
     Object.assign(errors, validationErrors)
-    toastRef.value.show({
-      severity: 'error',
-      summary: 'Ошибка',
-      detail: 'Пожалуйста, исправьте ошибки в форме.',
-      life: 3000
-    })
+    toastStore.showToast('Пожалуйста, исправьте ошибки в форме.', 'error')
     return
   }
   try {
@@ -178,12 +170,7 @@ async function handleSubmit() {
     router.push('/projects')
   } catch (err) {
     console.error('Ошибка при отправке формы:', err)
-    toastRef.value.show({
-      severity: 'error',
-      summary: 'Ошибка',
-      detail: err.response?.data?.message || 'Произошла ошибка при отправке формы.',
-      life: 3000
-    })
+    toastStore.showToast(err.response?.data?.message || 'Произошла ошибка при отправке формы.', 'error')
   }
 }
 </script>

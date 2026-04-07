@@ -8,7 +8,6 @@
 
 class PaywayUserColumns
 {
-
     /**
      * Class constructor
      */
@@ -18,6 +17,7 @@ class PaywayUserColumns
         add_action('admin_enqueue_scripts', [$this, 'enqueue_scripts']);
         add_filter('manage_users_columns', [$this, 'add_custom_columns']);
         add_action('manage_users_custom_column', [$this, 'render_custom_column'], 10, 3);
+        add_action('pre_get_users', [$this, 'default_sort_by_newest']);
     }
 
     /**
@@ -34,6 +34,7 @@ class PaywayUserColumns
                 ['jquery'],
                 PAYWAY_PLUGIN_VERSION
             );
+
             wp_localize_script('payway-users', 'paywayData', [
                 'apiUrl' => rest_url('payway/v1/'),
                 'nonce' => wp_create_nonce('wp_rest'),
@@ -45,7 +46,6 @@ class PaywayUserColumns
                 [],
                 PAYWAY_PLUGIN_VERSION
             );
-
         }
     }
 
@@ -60,8 +60,9 @@ class PaywayUserColumns
     {
         return array_merge($columns, [
             //'payway_balance'            => __( 'Payway Balance' ),
-            'payway_balance' => __('Баланс'),
+            'payway_balance' => __(''),
             'payway_withdrawal_balance' => __('Payway Withdrawal Balance'),
+            'payway_projects' => __(''),
         ]);
     }
 
@@ -74,34 +75,83 @@ class PaywayUserColumns
      *
      * @return string Returns HTML to display in the column
      */
-    public function render_custom_column($val, $column_name, $user_id): string
+    public function render_custom_column($val, $column_name, $user_id)
     {
         if ('payway_withdrawal_balance' === $column_name) {
-
-            $balance = (float)get_user_meta($user_id, $column_name, true);
-
-            $class = "payway-user-" . str_replace(['payway_', '_'], ['', '-'], $column_name) . "-input";
-
-            return '<input type="text" class="' . esc_attr($class) . '" 
-						data-default-balance="' . esc_attr($balance) . '" 
-						data-user-id="' . esc_attr($user_id) . '" 
-						min="0" 
-						value="' . esc_attr($balance) . '">';
+            $balance = (float)get_user_meta($user_id, 'payway_withdrawal_balance', true);
+            $class = $balance > 0 ? 'payway-balance-positive' : 'payway-balance-zero';
+            return '<input type="text" class="' . esc_attr($class) . '"
+                            data-default-balance="' . esc_attr($balance) . '"
+                            data-user-id="' . esc_attr($user_id) . '"
+                            min="0"
+                            value="' . esc_attr($balance) . '">';
         } else if ('payway_balance' === $column_name) {
             $balance = (float)get_user_meta($user_id, 'payway_balance', true);
             return '
                 <div class="payway-balance-container">
                     <span class="payway-balance-value">' . esc_html($balance) . '</span>
                     <select class="payway-month-selector" data-user-id="' . esc_attr($user_id) . '">
-                        <option value="">Выберите месяц</option>
+                        <option value=""> </option>
                     </select>
                 </div>
             ';
+        } else if ('payway_projects' === $column_name) {
+            global $wpdb;
+            $table = $wpdb->prefix . 'payway_projects';
+            $projects = $wpdb->get_results($wpdb->prepare(
+                "SELECT url, status FROM {$table} WHERE user_id = %d ORDER BY time DESC",
+                $user_id
+            ));
+
+            if (empty($projects)) {
+                return $val;
+            }
+
+            $links = [];
+            $status_colors = [
+                'approved' => '#28a745',
+                'review'   => '#007bff',
+                'rejected' => '#dc3545',
+            ];
+
+            foreach ($projects as $project) {
+                $url = esc_url($project->url);
+                $color = isset($status_colors[$project->status]) ? $status_colors[$project->status] : '#666';
+
+                // Extract display name from URL
+                $display = $project->url;
+                if (preg_match('#youtube\.com|youtu\.be#i', $project->url)) {
+                    $display = preg_replace('#^https?://(www\.)?#i', '', $project->url);
+                    $display = rtrim($display, '/');
+                } elseif (preg_match('#play\.google\.com/store/apps/details\?id=([^&]+)#i', $project->url, $m)) {
+                    $display = $m[1];
+                } else {
+                    $parsed = parse_url($project->url);
+                    $display = isset($parsed['host']) ? $parsed['host'] : $project->url;
+                    if (isset($parsed['path']) && $parsed['path'] !== '/') {
+                        $display .= rtrim($parsed['path'], '/');
+                    }
+                }
+
+                $links[] = '<a href="' . $url . '" target="_blank" style="color:' . esc_attr($color) . ';text-decoration:none;font-weight:500;">' . esc_html($display) . '</a>';
+            }
+
+            return implode('<br>', $links);
         }
 
         return $val;
     }
-}
 
+    /**
+     * Default sort users by newest first
+     */
+    public function default_sort_by_newest($query)
+    {
+        if (is_admin() && !isset($_GET['orderby'])) {
+            $query->set('orderby', 'registered');
+            $query->set('order', 'DESC');
+        }
+    }
+}
 
 new PaywayUserColumns();

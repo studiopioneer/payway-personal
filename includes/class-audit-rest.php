@@ -301,7 +301,7 @@ class PW_Audit_REST {
             $result[] = $this->normalize_report( $row, $user_id, true );
         }
 
-        return rest_ensure_response( $result );
+        return rest_ensure_response( [ 'items' => $result, 'total' => count( $result ) ] );
     }
 
     // ─────────────────────────────────────────────────────────
@@ -319,6 +319,25 @@ class PW_Audit_REST {
         $balance = (float) get_user_meta( $user_id, 'payway_balance', true );
 
         // Базовые поля — всегда присутствуют
+            //  report  Vue: {summary, admission, demonetization, copyright}
+        $_b1_risk = 'low';
+        if ( $audit->risk_block1 === 'fail' )     $_b1_risk = 'high';
+        elseif ( $audit->risk_block1 === 'warn' ) $_b1_risk = 'medium';
+        $_sig_txt = static function( $sigs ) {
+            if ( empty( $sigs ) || ! is_array( $sigs ) ) return '';
+            return implode( '. ', array_filter( array_map(
+                fn( $s ) => trim( ( $s['title'] ?? '' ) . ( ! empty( $s['description'] ) ? ': ' . $s['description'] : '' ) ),
+                $sigs ) ) );
+        };
+        $_b1_det = ! empty( $full['block1_criteria'] ) && is_array( $full['block1_criteria'] )
+            ? implode( '. ', array_filter( array_map( fn($c) => $c['description'] ?? $c['title'] ?? '', $full['block1_criteria'] ) ) )
+            : '';
+        $_report_vue = [
+            'summary'        => $full['summary_for_moderator'] ?? ( $full['summary'] ?? '' ),
+            'admission'      => $full['admission'] ?? [ 'risk' => $_b1_risk,               'details' => $_b1_det ],
+            'demonetization' => $full['demonetization'] ?? [ 'risk' => $full['block2_risk'] ?? 'low', 'details' => $_sig_txt( $full['block2_signals'] ?? [] ) ],
+            'copyright'      => $full['copyright']      ?? [ 'risk' => $full['block3_risk'] ?? 'low', 'details' => $_sig_txt( $full['block3_signals'] ?? [] ) ],
+        ];
         $response = [
             'id'             => (int) $audit->id,
             'status'         => 'done',
@@ -333,6 +352,7 @@ class PW_Audit_REST {
             'is_paid'        => (bool) $audit->is_paid,
             'amount_charged' => (float) $audit->amount_charged,
             'time'           => $audit->time,
+            'created_at'     => $audit->time,
             'preview'        => [
                 'subscriber_count'  => $preview['subscriber_count']  ?? 0,
                 'view_count'        => $preview['view_count']         ?? 0,
@@ -346,7 +366,7 @@ class PW_Audit_REST {
                 'php_signals_count' => $preview['php_signals_count']  ?? 0,
                 'block1_criteria'   => $preview['block1_criteria']    ?? [],
             ],
-            'report'       => $preview,
+        'report'         => $_report_vue,
             'unlock_info'    => [
                 'balance'          => $balance,
                 'credit_available' => $this->is_credit_available( $user_id, $balance ),

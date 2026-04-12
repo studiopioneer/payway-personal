@@ -184,6 +184,19 @@ class PW_OpenAI_Client {
       "recommendation": "Что нужно сделать автору"
     }
   ],
+  "summary": "2-4 predlozheniya itog    ",
+  "admission": {
+    "risk": "low | medium | high",
+    "details": "     "
+  },
+  "demonetization": {
+    "risk": "low | medium | high",
+    "details": "  "
+  },
+  "copyright": {
+    "risk": "low | medium | high",
+    "details": "   "
+  },
   "summary_for_moderator": "2-4 предложения для модератора: что проверить вручную, на что обратить внимание",
   "recommendations_for_user": ["Рекомендация 1", "Рекомендация 2", "..."]
 }

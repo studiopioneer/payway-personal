@@ -57,6 +57,8 @@ PW_Audit_Cron::register_hooks();
 if ( is_admin() ) {
 	require_once PAYWAY_PLUGIN_DIR . '/admin/pages/class-settings-page.php';
 	Payway\Pages\SettingsPage::init();
+	require_once PAYWAY_PLUGIN_DIR . '/admin/pages/class-audit-admin.php';
+	Payway\Pages\AuditAdminPage::init();
 }
 
 

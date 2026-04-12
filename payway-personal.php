@@ -56,7 +56,7 @@ PW_Audit_Cron::register_hooks();
 // ── Admin settings page (API keys) ──────────────────────────────────────────
 if ( is_admin() ) {
 	require_once PAYWAY_PLUGIN_DIR . '/admin/pages/class-settings-page.php';
-	Payway\\Pages\\SettingsPage::init();
+	Payway\Pages\SettingsPage::init();
 }
 
 

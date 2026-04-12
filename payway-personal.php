@@ -53,6 +53,12 @@ require_once PAYWAY_PLUGIN_DIR . '/includes/class-audit-cron.php';
 
 add_action( 'rest_api_init', [ 'PW_Audit_REST', 'register_routes' ] );
 PW_Audit_Cron::register_hooks();
+// ── Admin settings page (API keys) ──────────────────────────────────────────
+if ( is_admin() ) {
+	require_once PAYWAY_PLUGIN_DIR . '/admin/pages/class-settings-page.php';
+	Payway\\Pages\\SettingsPage::init();
+}
+
 
 // ── Admin bar ─────────────────────────────────────────────────────────────────
 add_filter( 'show_admin_bar', fn( $show ) => current_user_can( 'administrator' ) );

@@ -31,5 +31,6 @@ $css_urls = ( $css_files && count( $css_files ) )  ? array_map( function( $f ) u
 </head>
 <body>
 <div id="root"></div>
+<?php wp_footer(); ?>
 </body>
 </html>

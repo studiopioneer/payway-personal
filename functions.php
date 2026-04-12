@@ -96,3 +96,27 @@ function payway_link_referral( $user_id, $email ) {
     // Clear cookie
     setcookie( 'payway_ref', '', time() - 3600, '/' );
 }
+
+
+// Inject JS to load audit report when navigating to /audit?id=N from history
+function payway_inject_audit_history_loader() {
+    echo '<script>
+(function(){
+    var id = new URLSearchParams(location.search).get("id");
+    if (!id || !location.pathname.match(/\/audit\/?$/)) return;
+    function tryPatch(attempts) {
+        if (attempts <= 0) return;
+        var el = document.querySelector("[data-v-app]");
+        if (!el || !el.__vue_app__) { setTimeout(function(){ tryPatch(attempts-1); }, 300); return; }
+        var pinia = el.__vue_app__.config.globalProperties.$pinia;
+        if (!pinia || !pinia._s) { setTimeout(function(){ tryPatch(attempts-1); }, 300); return; }
+        var store = pinia._s.get("audit");
+        if (!store) { setTimeout(function(){ tryPatch(attempts-1); }, 300); return; }
+        store.auditId = parseInt(id);
+        store.pollStatus();
+    }
+    setTimeout(function(){ tryPatch(20); }, 800);
+})();
+</script>';
+}
+add_action( 'wp_footer', 'payway_inject_audit_history_loader' );

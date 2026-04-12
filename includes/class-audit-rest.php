@@ -31,6 +31,14 @@ class PW_Audit_REST {
                 "per_page" => [ "type" => "integer", "default" => 10, "minimum" => 1, "maximum" => 50 ],
             ],
         ] );
+        register_rest_route( self::NS, "/audit/(?P<id>\d+)/unlock", [
+            "methods"             => WP_REST_Server::CREATABLE,
+            "callback"            => [ self::class, "unlock_report" ],
+            "permission_callback" => [ self::class, "require_auth" ],
+            "args"                => [
+                "id" => [ "required" => true, "type" => "integer" ],
+            ],
+        ] );
     }
     public static function require_auth() {
         if ( ! is_user_logged_in() ) {
@@ -116,4 +124,103 @@ class PW_Audit_REST {
             "per_page"    => $per_page,
         ], 200 );
     }
+    /**
+     * POST /payway/v1/audit/{id}/unlock
+     *
+     * Branch A: balance >= $1.00  -> atomic debit $1.00  + is_paid = 1
+     * Branch B: balance = 0, first unlock today -> free daily credit + is_paid = 1
+     * Branch C: insufficient funds -> 402 with shortfall
+     */
+    public static function unlock_report( WP_REST_Request $request ): WP_REST_Response {
+        global $wpdb;
+
+        $user_id  = get_current_user_id();
+        $audit_id = (int) $request->get_param( 'id' );
+        $table    = $wpdb->prefix . 'payway_channel_audits';
+
+        // Fetch audit row and verify ownership
+        $audit = $wpdb->get_row( $wpdb->prepare(
+            "SELECT id, user_id, status, is_paid FROM {$table} WHERE id = %d",
+            $audit_id
+        ) );
+
+        if ( ! $audit ) {
+            return new WP_REST_Response( [ 'message' => 'Audit not found.' ], 404 );
+        }
+        if ( (int) $audit->user_id !== $user_id ) {
+            return new WP_REST_Response( [ 'message' => 'Access denied.' ], 403 );
+        }
+        if ( 'done' !== $audit->status ) {
+            return new WP_REST_Response( [ 'message' => 'Audit is not complete yet.' ], 409 );
+        }
+
+        // Idempotent: already unlocked
+        if ( (bool) $audit->is_paid ) {
+            return new WP_REST_Response( [ 'unlocked' => true, 'method' => 'already_paid' ], 200 );
+        }
+
+        // Read current balance
+        $balance = floatval( get_user_meta( $user_id, 'payway_withdrawal_balance', true ) );
+
+        // == Branch A: balance debit ($1.00) ==================================
+        if ( $balance >= 1.00 ) {
+            $wpdb->query( 'START TRANSACTION' );
+
+            $new_balance = $balance - 1.00;
+            $meta_ok     = update_user_meta( $user_id, 'payway_withdrawal_balance', $new_balance );
+            $flag_ok     = $wpdb->update(
+                $table,
+                [ 'is_paid' => 1 ],
+                [ 'id'      => $audit_id ],
+                [ '%d' ],
+                [ '%d' ]
+            );
+
+            if ( false === $flag_ok || false === $meta_ok ) {
+                $wpdb->query( 'ROLLBACK' );
+                return new WP_REST_Response( [ 'message' => 'Payment failed. Please try again.' ], 500 );
+            }
+
+            $wpdb->query( 'COMMIT' );
+
+            return new WP_REST_Response( [
+                'unlocked'      => true,
+                'method'        => 'balance',
+                'charged'       => 1.00,
+                'balance_after' => round( $new_balance, 2 ),
+            ], 200 );
+        }
+
+        // == Branch B: free daily credit ======================================
+        if ( PW_Audit_Credit::can_use_daily_credit( $user_id ) ) {
+            $flag_ok = $wpdb->update(
+                $table,
+                [ 'is_paid' => 1 ],
+                [ 'id'      => $audit_id ],
+                [ '%d' ],
+                [ '%d' ]
+            );
+
+            if ( false === $flag_ok ) {
+                return new WP_REST_Response( [ 'message' => 'Could not unlock. Please try again.' ], 500 );
+            }
+
+            PW_Audit_Credit::consume_daily_credit( $user_id );
+
+            return new WP_REST_Response( [
+                'unlocked' => true,
+                'method'   => 'daily_credit',
+            ], 200 );
+        }
+
+        // == Branch C: insufficient funds =====================================
+        $shortfall = round( 1.00 - $balance, 2 );
+        return new WP_REST_Response( [
+            'unlocked'  => false,
+            'message'   => 'Insufficient balance.',
+            'balance'   => round( $balance, 2 ),
+            'shortfall' => $shortfall,
+        ], 402 );
+    }
+
 }

@@ -47,6 +47,7 @@ require_once PAYWAY_PLUGIN_DIR . '/includes/class-audit-analyzer.php';
 require_once PAYWAY_PLUGIN_DIR . '/includes/class-audit-repository.php';
 //  Channel Audit: Sprint 2 (OpenAI + REST API + Cron) 
 require_once PAYWAY_PLUGIN_DIR . '/includes/class-openai-client.php';
+require_once PAYWAY_PLUGIN_DIR . '/includes/class-audit-credit.php';
 require_once PAYWAY_PLUGIN_DIR . '/includes/class-audit-rest.php';
 require_once PAYWAY_PLUGIN_DIR . '/includes/class-audit-cron.php';
 

@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/class-audit-analyzer.php';
 /**
  * Sprint 2: WP Cron handler for channel audit processing.
  *
@@ -37,7 +38,7 @@ class PW_Audit_Cron {
      */
     public static function process( int $audit_id ): void {
         // Fetch the audit row (any status  re-check inside)
-        $audit = PW_Audit_Repository::find( $audit_id );
+        $audit = Payway_Audit_Repository::find( $audit_id );
         if ( ! $audit ) {
             error_log( "[PW Audit Cron] audit #{$audit_id} not found, skipping." );
             return;
@@ -49,15 +50,15 @@ class PW_Audit_Cron {
             return;
         }
 
-        PW_Audit_Repository::mark_processing( $audit_id );
+        Payway_Audit_Repository::mark_processing( $audit_id );
 
         try {
-            $analyzer = new PW_Audit_Analyzer();
+            $analyzer = new Payway_Audit_Analyzer();
 
             //  Step 1: YouTube API + rule-based analysis 
             $result = $analyzer->analyze( $audit['channel_url'] );
 
-            PW_Audit_Repository::save_preview_result(
+            Payway_Audit_Repository::save_preview_result(
                 $audit_id,
                 $result['channel'],
                 $result['preview'],
@@ -67,11 +68,11 @@ class PW_Audit_Cron {
             //  Step 2: OpenAI full report 
             $full_report = $analyzer->analyze_with_ai( $result['ai_payload'] );
 
-            PW_Audit_Repository::save_full_report( $audit_id, $full_report );
+            Payway_Audit_Repository::save_full_report( $audit_id, $full_report );
 
         } catch ( Throwable $e ) {
             error_log( "[PW Audit Cron] audit #{$audit_id} failed: " . $e->getMessage() );
-            PW_Audit_Repository::mark_error( $audit_id, $e->getMessage() );
+            Payway_Audit_Repository::mark_error( $audit_id, $e->getMessage() );
         }
     }
 }

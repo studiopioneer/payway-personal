@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/class-youtube-api.php';
+require_once __DIR__ . '/class-openai-client.php';
 /**
  * Анализатор данных канала.
  *

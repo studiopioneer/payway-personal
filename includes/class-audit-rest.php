@@ -1,5 +1,11 @@
 <?php
 defined( "ABSPATH" ) || exit;
+require_once __DIR__ . '/class-audit-db.php';
+require_once __DIR__ . '/class-audit-rate-limiter.php';
+require_once __DIR__ . '/class-audit-repository.php';
+require_once __DIR__ . '/class-audit-cron.php';
+require_once __DIR__ . '/class-audit-credit.php';
+
 class PW_Audit_REST {
     private const NS = "payway/v1";
     public static function register_routes(): void {
@@ -21,6 +27,12 @@ class PW_Audit_REST {
             "callback"            => [ self::class, "get_audit" ],
             "permission_callback" => [ self::class, "require_auth" ],
             "args"                => [ "id" => [ "required" => true, "type" => "integer" ] ],
+        ] );
+        register_rest_route( self::NS, "/audit/(?P<id>\d+)/status", [
+            "methods" => WP_REST_Server::READABLE,
+            "callback" => [ self::class, "get_audit" ],
+            "permission_callback" => [ self::class, "require_auth" ],
+            "args" => [ "id" => [ "required" => true, "type" => "integer" ] ],
         ] );
         register_rest_route( self::NS, "/audit/history", [
             "methods"             => WP_REST_Server::READABLE,
@@ -59,15 +71,15 @@ class PW_Audit_REST {
     public static function start_audit( WP_REST_Request $request ) {
         $user_id     = get_current_user_id();
         $channel_url = trim( $request->get_param( "channel_url" ) );
-        if ( ! PW_Audit_Rate_Limiter::can_start_audit( $user_id ) ) {
-            if ( ! PW_Audit_Rate_Limiter::can_use_daily_credit( $user_id ) ) {
+        if ( ! Payway_Audit_Rate_Limiter::can_start_audit( $user_id ) ) {
+            if ( ! Payway_Audit_Rate_Limiter::can_use_daily_credit( $user_id ) ) {
                 return new WP_Error( "rate_limit_exceeded", "Hourly limit reached. Daily bonus credit is also spent.", [ "status" => 429 ] );
             }
-            PW_Audit_Rate_Limiter::consume_daily_credit( $user_id );
+            Payway_Audit_Rate_Limiter::consume_daily_credit( $user_id );
         } else {
-            PW_Audit_Rate_Limiter::record_audit_start( $user_id );
+            Payway_Audit_Rate_Limiter::record_audit_start( $user_id );
         }
-        $audit_id = PW_Audit_Repository::create( $user_id, $channel_url );
+        $audit_id = Payway_Audit_Repository::create( $user_id, $channel_url );
         if ( ! $audit_id ) return new WP_Error( "db_error", "Failed to create audit record.", [ "status" => 500 ] );
         wp_schedule_single_event( time(), PW_Audit_Cron::HOOK, [ $audit_id ] );
         return new WP_REST_Response( [ "audit_id" => $audit_id, "status" => "pending" ], 201 );
@@ -75,7 +87,7 @@ class PW_Audit_REST {
     public static function get_audit( WP_REST_Request $request ) {
         $user_id  = get_current_user_id();
         $audit_id = (int) $request->get_param( "id" );
-        $audit = PW_Audit_Repository::find_for_user( $audit_id, $user_id );
+        $audit = Payway_Audit_Repository::find_for_user( $audit_id, $user_id );
         if ( ! $audit ) return new WP_Error( "not_found", "Audit not found.", [ "status" => 404 ] );
         $preview     = ! empty( $audit["report_preview"] ) ? json_decode( $audit["report_preview"], true ) : null;
         $full_report = ( ! empty( $audit["report_full"] ) && (bool) $audit["is_paid"] ) ? json_decode( $audit["report_full"], true ) : null;
@@ -91,6 +103,8 @@ class PW_Audit_REST {
             "is_paid"             => (bool) $audit["is_paid"],
             "report_preview"      => $preview,
             "report_full"         => $full_report,
+            "report"     => $full_report ?: $preview,
+            "report"         => $$full_report ?: $preview,
             "error_message"       => $audit["error_message"],
             "created_at"          => $audit["created_at"],
             "updated_at"          => $audit["updated_at"],
@@ -100,7 +114,7 @@ class PW_Audit_REST {
         $user_id  = get_current_user_id();
         $page     = (int) $request->get_param( "page" );
         $per_page = (int) $request->get_param( "per_page" );
-        $result   = PW_Audit_Repository::list_for_user( $user_id, $page, $per_page );
+        $result   = Payway_Audit_Repository::list_for_user( $user_id, $page, $per_page );
         $items = array_map( static function ( array $row ): array {
             return [
                 "id"                  => (int) $row["id"],

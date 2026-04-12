@@ -110,6 +110,7 @@ add_filter( 'template_include', function ( $template ) {
 		'unlock'            => 'account.php',
 		'stats'             => 'account.php',
 		'create-withdrawal' => 'account.php',
+            'audit'             => 'account.php',
 	];
 
 	$dir = plugin_dir_path( __FILE__ ) . '/pages/';

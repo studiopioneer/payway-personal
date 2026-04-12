@@ -107,14 +107,13 @@ abstract class AbstractAdminPage
      */
     public function register_page(): void
     {
-        add_menu_page(
+        add_submenu_page(
+            'payway-cabinet',
             $this->page_title,
             $this->menu_title,
             'manage_options',
             $this->menu_slug,
-            [$this, 'render_admin_page'],
-            '',
-            100
+            [$this, 'render_admin_page']
         );
     }
 

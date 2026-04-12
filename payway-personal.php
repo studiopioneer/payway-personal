@@ -64,6 +64,23 @@ if ( is_admin() ) {
 add_filter( 'show_admin_bar', fn( $show ) => current_user_can( 'administrator' ) );
 
 // ── Admin pages ───────────────────────────────────────────────────────────────
+// ── Admin parent menu (priority 9 — fires before submenu registrations) ────────
+add_action( 'admin_menu', function () {
+	add_menu_page(
+		'PW Кабинет',
+		'PW Кабинет',
+		'manage_options',
+		'payway-cabinet',
+		'',
+		'dashicons-admin-multisite',
+		100
+	);
+}, 9 );
+add_action( 'admin_menu', function () {
+	remove_submenu_page( 'payway-cabinet', 'payway-cabinet' );
+}, 11 );
+
+
 add_action( 'admin_menu', function () {
 	require_once PAYWAY_PLUGIN_DIR . '/admin/pages/class-admin-pages.php';
 	require_once PAYWAY_PLUGIN_DIR . '/admin/pages/class-projects-page.php';

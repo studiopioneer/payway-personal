@@ -27,14 +27,13 @@ class SettingsPage {
 	}
 
 	public function register_menu(): void {
-		add_menu_page(
+		add_submenu_page(
+			'payway-cabinet',
 			'Настройки API — Payway',
 			'Настройки API',
 			'manage_options',
 			self::MENU_SLUG,
-			[ $this, 'render_page' ],
-			'dashicons-admin-generic',
-			102
+			[ $this, 'render_page' ]
 		);
 	}
 

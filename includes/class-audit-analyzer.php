@@ -1,396 +1,416 @@
 <?php
-require_once __DIR__ . '/class-youtube-api.php';
-require_once __DIR__ . '/class-openai-client.php';
 /**
- * Анализатор данных канала.
- *
- * Собирает метрики из YouTube API и формирует payload для OpenAI.
- * OpenAI-вызов — в Sprint 2; здесь только агрегация данных
- * и вычисление предварительного (rule-based) вердикта.
- *
- * @package Payway
- * @since   7.0
+ * PW_Audit_Analyzer — вычисление PHP-метрик и reused-сигналов
+ * Строго по ТЗ §5
  */
-
-if ( ! defined( 'ABSPATH' ) ) {
-	exit;
-}
-
-class Payway_Audit_Analyzer {
-
-	// -------------------------------------------------------------------------
-	// Thresholds для rule-based preview
-	// -------------------------------------------------------------------------
-
-	/** Минимальный % мейкфоркидс-видео → риск отказа */
-	private const MFK_THRESHOLD = 0.3;
-
-	/** Минимальный % видео с явной лицензией Creative Commons */
-	private const CC_THRESHOLD  = 0.5;
-
-	/** Минимальный % видео без кастомных превью */
-	private const NO_THUMB_HIGH = 0.6;
-
-	private Payway_YouTube_API $yt;
-
-	public function __construct() {
-		$this->yt = new Payway_YouTube_API();
-	}
-
-	// -------------------------------------------------------------------------
-	// Public
-	// -------------------------------------------------------------------------
-
-	/**
-	 * Запустить полный анализ канала.
-	 *
-	 * @param string $channel_url URL канала.
-	 * @return array{
-	 *   channel: array,
-	 *   metrics: array,
-	 *   preview: array,
-	 *   ai_payload: array,
-	 * }
-	 * @throws RuntimeException При ошибках YouTube API.
-	 */
-	public function analyze( string $channel_url ): array {
-		// 1. Данные канала
-		$channel = $this->yt->get_channel_data( $channel_url );
-
-		// 2. ID последних 100 видео
-		$video_ids = $this->yt->get_video_ids( $channel['uploads_playlist_id'], 100 );
-
-		// 3. Детали видео
-		$videos = ! empty( $video_ids )
-			? $this->yt->get_videos_details( $video_ids )
-			: [];
-
-		// 4. Агрегированные метрики
-		$metrics = $this->compute_metrics( $channel, $videos );
-
-		// 5. Rule-based preview (без AI)
-		$preview = $this->compute_preview( $channel, $metrics );
-
-		// 6. Payload для OpenAI (Sprint 2)
-		$ai_payload = $this->build_ai_payload( $channel, $videos, $metrics );
-
-		return compact( 'channel', 'metrics', 'preview', 'ai_payload' );
-	}
-
-	// -------------------------------------------------------------------------
-	// Private: metrics
-	// -------------------------------------------------------------------------
-
-	/**
-	 * Агрегировать числовые метрики по массиву видео.
-	 */
-	private function compute_metrics( array $channel, array $videos ): array {
-		$total = count( $videos );
-		if ( $total === 0 ) {
-			return $this->empty_metrics( $channel );
-		}
-
-		$mfk_count        = 0;
-		$cc_count         = 0;
-		$no_thumb_count   = 0;
-		$private_count    = 0;
-		$short_count      = 0; // duration < PT1M
-		$total_views      = 0;
-		$total_likes      = 0;
-		$total_comments   = 0;
-		$categories       = [];
-
-		foreach ( $videos as $v ) {
-			if ( $v['made_for_kids'] )               $mfk_count++;
-			if ( $v['license'] === 'creativeCommon' ) $cc_count++;
-			if ( ! $v['has_custom_thumbnail'] )       $no_thumb_count++;
-			if ( $v['privacy_status'] !== 'public' )  $private_count++;
-			if ( $this->is_short( $v['duration'] ) )  $short_count++;
-
-			$total_views    += $v['view_count'];
-			$total_likes    += $v['like_count'];
-			$total_comments += $v['comment_count'];
-			$categories[]    = $v['category_id'];
-		}
-
-		$avg_views    = round( $total_views    / $total );
-		$avg_likes    = round( $total_likes    / $total );
-		$avg_comments = round( $total_comments / $total );
-
-		$category_freq = array_count_values( $categories );
-		arsort( $category_freq );
-		$top_category = array_key_first( $category_freq ) ?? 0;
-
-		return [
-			'total_videos_analyzed' => $total,
-			'subscriber_count'      => $channel['subscriber_count'],
-			'total_view_count'      => $channel['view_count'],
-			'channel_video_count'   => $channel['video_count'],
-			'country'               => $channel['country'],
-			'mfk_ratio'             => round( $mfk_count    / $total, 4 ),
-			'cc_ratio'              => round( $cc_count      / $total, 4 ),
-			'no_thumb_ratio'        => round( $no_thumb_count/ $total, 4 ),
-			'private_ratio'         => round( $private_count / $total, 4 ),
-			'shorts_ratio'          => round( $short_count   / $total, 4 ),
-			'avg_views'             => $avg_views,
-			'avg_likes'             => $avg_likes,
-			'avg_comments'          => $avg_comments,
-			'engagement_rate'       => $avg_views > 0
-				? round( ( $avg_likes + $avg_comments ) / $avg_views, 4 )
-				: 0,
-			'top_category_id'       => $top_category,
-		];
-	}
-
-	/**
-	 * Пустые метрики (для каналов без видео).
-	 */
-	private function empty_metrics( array $channel ): array {
-		return [
-			'total_videos_analyzed' => 0,
-			'subscriber_count'      => $channel['subscriber_count'],
-			'total_view_count'      => $channel['view_count'],
-			'channel_video_count'   => $channel['video_count'],
-			'country'               => $channel['country'],
-			'mfk_ratio'             => 0,
-			'cc_ratio'              => 0,
-			'no_thumb_ratio'        => 0,
-			'private_ratio'         => 0,
-			'shorts_ratio'          => 0,
-			'avg_views'             => 0,
-			'avg_likes'             => 0,
-			'avg_comments'          => 0,
-			'engagement_rate'       => 0,
-			'top_category_id'       => 0,
-		];
-	}
-
-	// -------------------------------------------------------------------------
-	// Private: rule-based preview
-	// -------------------------------------------------------------------------
-
-	/**
-	 * Вычислить предварительный вердикт без AI (rule-based).
-	 *
-	 * Возвращает JSON-совместимый массив — сохраняется в report_preview.
-	 */
-	private function compute_preview( array $channel, array $metrics ): array {
-		// Block 1: Admission
-		$admission = $this->compute_admission( $channel, $metrics );
-
-		// Block 2: Demonetization risk
-		$demonetization = $this->compute_demonetization( $metrics );
-
-		// Block 3: Copyright risk
-		$copyright = $this->compute_copyright( $metrics );
-
-		return [
-			'admission'      => $admission,
-			'demonetization' => $demonetization,
-			'copyright'      => $copyright,
-			'generated_at'   => gmdate( 'Y-m-d\TH:i:s\Z' ),
-			'is_ai'          => false,
-		];
-	}
-
-	private function compute_admission( array $channel, array $metrics ): array {
-		$flags    = [];
-		$verdict  = 'allowed';
-
-		if ( $metrics['subscriber_count'] < 1000 ) {
-			$flags[]  = 'subscriber_count_low';
-			$verdict  = 'needs_check';
-		}
-		if ( $metrics['mfk_ratio'] > self::MFK_THRESHOLD ) {
-			$flags[]  = 'made_for_kids_high';
-			$verdict  = 'denied';
-		}
-		if ( $metrics['total_videos_analyzed'] === 0 ) {
-			$flags[]  = 'no_public_videos';
-			$verdict  = 'needs_check';
-		}
-
-		return [
-			'verdict' => $verdict,
-			'flags'   => $flags,
-			'summary' => $this->admission_summary( $verdict ),
-		];
-	}
-
-	private function compute_demonetization( array $metrics ): array {
-		$score = 0;
-
-		if ( $metrics['mfk_ratio']       > 0.1  ) $score += 2;
-		if ( $metrics['shorts_ratio']     > 0.7  ) $score += 1;
-		if ( $metrics['avg_views']        < 500  ) $score += 1;
-		if ( $metrics['engagement_rate']  < 0.01 ) $score += 1;
-		if ( $metrics['private_ratio']    > 0.2  ) $score += 1;
-
-		$risk = match ( true ) {
-			$score >= 4 => 'high',
-			$score >= 2 => 'medium',
-			default     => 'low',
-		};
-
-		return [
-			'risk'    => $risk,
-			'score'   => $score,
-			'summary' => $this->risk_summary( 'demonetization', $risk ),
-		];
-	}
-
-	private function compute_copyright( array $metrics ): array {
-		$score = 0;
-
-		if ( $metrics['cc_ratio']       > self::CC_THRESHOLD ) $score += 2;
-		if ( $metrics['no_thumb_ratio'] > self::NO_THUMB_HIGH ) $score += 1;
-
-		$risk = match ( true ) {
-			$score >= 3 => 'high',
-			$score >= 1 => 'medium',
-			default     => 'low',
-		};
-
-		return [
-			'risk'    => $risk,
-			'score'   => $score,
-			'summary' => $this->risk_summary( 'copyright', $risk ),
-		];
-	}
-
-	// -------------------------------------------------------------------------
-	// Private: AI payload builder
-	// -------------------------------------------------------------------------
-
-	/**
-	 * Сформировать payload для OpenAI (используется в Sprint 2).
-	 */
-	private function build_ai_payload( array $channel, array $videos, array $metrics ): array {
-		$videos_summary = array_map( function ( $v ) {
-			return [
-				'title'         => $v['title'],
-				'description'   => mb_substr( $v['description'], 0, 200 ),
-				'tags'          => array_slice( $v['tags'], 0, 10 ),
-				'category_id'   => $v['category_id'],
-				'duration'      => $v['duration'],
-				'license'       => $v['license'],
-				'made_for_kids' => $v['made_for_kids'],
-			];
-		}, $videos );
-
-		return [
-			'channel' => [
-				'title'            => $channel['title'],
-				'description'      => mb_substr( $channel['description'], 0, 500 ),
-				'country'          => $channel['country'],
-				'subscriber_count' => $channel['subscriber_count'],
-				'video_count'      => $channel['video_count'],
-			],
-			'metrics'         => $metrics,
-			'videos_analyzed' => count( $videos_summary ),
-			'videos'          => $videos_summary,
-		];
-	}
-
-	// -------------------------------------------------------------------------
-	// Helpers
-	// -------------------------------------------------------------------------
-
-	/**
-	 * Определить, является ли видео Shorts (duration < 1 минута).
-	 */
-	private function is_short( string $iso_duration ): bool {
-		if ( preg_match( '/^PT(\d+)S$/', $iso_duration, $m ) ) {
-			return (int) $m[1] < 60;
-		}
-		return false;
-	}
-
-	private function admission_summary( string $verdict ): string {
-		return match ( $verdict ) {
-			'allowed'     => 'Канал соответствует базовым критериям допуска к платформе.',
-			'denied'      => 'Канал не соответствует требованиям монетизации.',
-			'needs_check' => 'Канал требует дополнительной проверки.',
-			default       => '',
-		};
-	}
-
-	private function risk_summary( string $block, string $risk ): string {
-		$map = [
-			'demonetization' => [
-				'low'    => 'Низкий риск демонетизации. Показатели вовлечённости в норме.',
-				'medium' => 'Средний риск. Рекомендуется улучшить охват и вовлечённость.',
-				'high'   => 'Высокий риск демонетизации. Необходимы корректировки контент-стратегии.',
-			],
-			'copyright' => [
-				'low'    => 'Нарушений авторских прав не обнаружено по базовым критериям.',
-				'medium' => 'Возможны единичные нарушения. Детальный анализ рекомендован.',
-				'high'   => 'Высокий риск проблем с авторскими правами.',
-			],
-		];
-		return $map[ $block ][ $risk ] ?? '';
-	}
-    //  Sprint 2: OpenAI full analysis 
+class PW_Audit_Analyzer {
 
     /**
-     * Send the AI payload to OpenAI gpt-4o and get the full structured report.
+     * Главный метод: вычисляет всё на основе данных YouTube API.
      *
-     * Expected JSON response shape:
-     * {
-     *   "admission":       { "verdict": "allowed|denied|needs_check", "summary": "...", "bullets": [...] },
-     *   "demonetization":  { "risk": "low|medium|high", "summary": "...", "bullets": [...] },
-     *   "copyright":       { "risk": "low|medium|high", "summary": "...", "bullets": [...] },
-     *   "overall_summary": "...",
-     *   "recommendations": [...]
+     * @param array $yt_data  ['channel' => [...], 'videos' => [...]]
+     * @return array {
+     *   age_months, videos_per_month, avg_er,
+     *   block1_criteria, block1_status,
+     *   php_signals,
+     *   channel_metrics
      * }
-     *
-     * @param  array $ai_payload Output of build_ai_payload().
-     * @return array Decoded AI report.
-     * @throws RuntimeException If OpenAI fails or returns invalid JSON.
      */
-    public function analyze_with_ai( array $ai_payload ): array {
-        $client = new PW_OpenAI_Client();
+    public function analyze( array $yt_data ) {
+        $channel = $yt_data['channel'];
+        $videos  = $yt_data['videos'];
 
-        $system = <<<PROMPT
-You are an expert YouTube channel compliance analyst. Analyse the provided channel data and return a structured JSON audit report. Be objective and concise.
+        // --- Базовые метрики ---
+        $age_months      = $this->calc_age_months( $channel['snippet']['publishedAt'] ?? '' );
+        $subscriber_count = (int) ( $channel['statistics']['subscriberCount'] ?? 0 );
+        $video_count      = (int) ( $channel['statistics']['videoCount'] ?? 0 );
+        $view_count       = (int) ( $channel['statistics']['viewCount'] ?? 0 );
 
-Return ONLY a valid JSON object with this exact structure:
-{
-  "admission": {
-    "verdict": "allowed | denied | needs_check",
-    "summary": "2-3 sentence explanation",
-    "bullets": ["key point 1", "key point 2", "key point 3"]
-  },
-  "demonetization": {
-    "risk": "low | medium | high",
-    "summary": "2-3 sentence explanation",
-    "bullets": ["key point 1", "key point 2", "key point 3"]
-  },
-  "copyright": {
-    "risk": "low | medium | high",
-    "summary": "2-3 sentence explanation",
-    "bullets": ["key point 1", "key point 2", "key point 3"]
-  },
-  "overall_summary": "3-4 sentence executive summary",
-  "recommendations": ["action 1", "action 2", "action 3"]
-}
+        $videos_per_month = $this->calc_videos_per_month( $videos, 3 );
+        $avg_er           = $this->calc_avg_er( $videos );
+        $has_reg_gap      = $this->has_regularity_gap( $videos, 60 );
 
-Use the rule-based pre-analysis (admission_verdict, demonetization_risk, copyright_risk) as guidance but apply your own reasoning based on the full video data.
-PROMPT;
+        // --- Блок 1: PHP-критерии допуска (§5.1) ---
+        $block1 = $this->eval_block1([
+            'age_months'        => $age_months,
+            'videos_per_month'  => $videos_per_month,
+            'video_count'       => $video_count,
+            'subscriber_count'  => $subscriber_count,
+            'madeForKids'       => $channel['status']['madeForKids'] ?? false,
+            'longUploadsStatus' => $channel['status']['longUploadsStatus'] ?? '',
+            'hiddenSubscribers' => $channel['statistics']['hiddenSubscriberCount'] ?? false,
+            'has_reg_gap'       => $has_reg_gap,
+            'topic_categories'  => $channel['topicDetails']['topicCategories'] ?? [],
+        ]);
 
-        $user = json_encode( $ai_payload, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT );
+        // --- Блок 2: PHP-сигналы reused / mass-produced (§5.2.1) ---
+        $php_signals = $this->eval_reused_signals( $videos, $videos_per_month, $avg_er, $subscriber_count, $channel );
 
-        $report = $client->ask_json( $system, $user, 'gpt-4o', 2000 );
+        return [
+            'age_months'       => $age_months,
+            'videos_per_month' => $videos_per_month,
+            'avg_er'           => $avg_er,
+            'block1_criteria'  => $block1['criteria'],
+            'block1_status'    => $block1['status'],   // 'ok' | 'warn' | 'fail'
+            'php_signals'      => $php_signals,
+            'channel_metrics'  => [
+                'subscriber_count'  => $subscriber_count,
+                'view_count'        => $view_count,
+                'video_count'       => $video_count,
+                'age_months'        => $age_months,
+                'videos_per_month'  => $videos_per_month,
+                'avg_er'            => $avg_er,
+                'madeForKids'       => $channel['status']['madeForKids'] ?? false,
+                'longUploadsStatus' => $channel['status']['longUploadsStatus'] ?? '',
+                'topicCategories'   => $channel['topicDetails']['topicCategories'] ?? [],
+                'country'           => $channel['snippet']['country'] ?? '',
+                'customUrl'         => $channel['snippet']['customUrl'] ?? '',
+                'title'             => $channel['snippet']['title'] ?? '',
+                'publishedAt'       => $channel['snippet']['publishedAt'] ?? '',
+            ],
+        ];
+    }
 
-        // Validate required top-level keys
-        $required = [ 'admission', 'demonetization', 'copyright', 'overall_summary', 'recommendations' ];
-        foreach ( $required as $key ) {
-            if ( ! array_key_exists( $key, $report ) ) {
-                throw new \RuntimeException( "OpenAI report missing key: {$key}" );
+    // ─────────────────────────────────────────────────────────
+    // БЛОК 1: критерии допуска
+    // ─────────────────────────────────────────────────────────
+
+    private function eval_block1( array $p ) {
+        $criteria = [];
+        $has_fail = false;
+        $has_warn = false;
+
+        // 1. Возраст ≥ 6 месяцев
+        if ( $p['age_months'] >= 6 ) {
+            $status = 'ok';
+            $detail = "{$p['age_months']} мес.";
+        } else {
+            $status   = 'fail';
+            $has_fail = true;
+            $detail   = "Только {$p['age_months']} мес. (требуется ≥ 6)";
+        }
+        $criteria[] = [ 'name' => 'Возраст ≥ 6 месяцев', 'status' => $status, 'detail' => $detail ];
+
+        // 2. Регулярность (нет пауз > 60 дней за 3 мес)
+        if ( ! $p['has_reg_gap'] ) {
+            $criteria[] = [ 'name' => 'Регулярные публикации', 'status' => 'ok', 'detail' => round( $p['videos_per_month'], 1 ) . ' видео/мес' ];
+        } else {
+            $has_fail   = true;
+            $criteria[] = [ 'name' => 'Регулярные публикации', 'status' => 'fail', 'detail' => 'Обнаружена пауза > 60 дней' ];
+        }
+
+        // 3. Не детский
+        if ( ! $p['madeForKids'] ) {
+            $criteria[] = [ 'name' => 'Не «Сделано для детей»', 'status' => 'ok', 'detail' => 'madeForKids = false' ];
+        } else {
+            $has_fail   = true;
+            $criteria[] = [ 'name' => 'Не «Сделано для детей»', 'status' => 'fail', 'detail' => 'Канал помечен как детский' ];
+        }
+
+        // 4. Минимум 5 видео
+        if ( $p['video_count'] >= 5 ) {
+            $criteria[] = [ 'name' => 'Минимум 5 видео', 'status' => 'ok', 'detail' => "{$p['video_count']} видео" ];
+        } else {
+            $has_fail   = true;
+            $criteria[] = [ 'name' => 'Минимум 5 видео', 'status' => 'fail', 'detail' => "Только {$p['video_count']} публичных видео" ];
+        }
+
+        // 5. Верификация (longUploadsStatus)
+        $lus = strtolower( $p['longUploadsStatus'] );
+        if ( $lus === 'allowed' ) {
+            $criteria[] = [ 'name' => 'Верификация канала', 'status' => 'ok', 'detail' => 'longUploadsStatus = allowed' ];
+        } elseif ( $lus === 'eligible' ) {
+            $has_warn   = true;
+            $criteria[] = [ 'name' => 'Верификация канала', 'status' => 'warn', 'detail' => 'longUploadsStatus = eligible (частичная верификация)' ];
+        } else {
+            $has_warn   = true;
+            $criteria[] = [ 'name' => 'Верификация канала', 'status' => 'warn', 'detail' => 'longUploadsStatus = disallowed' ];
+        }
+
+        // 6. Скрытые подписчики
+        if ( ! $p['hiddenSubscribers'] ) {
+            $criteria[] = [ 'name' => 'Открытое число подписчиков', 'status' => 'ok', 'detail' => 'Подписчики публичны' ];
+        } else {
+            $has_warn   = true;
+            $criteria[] = [ 'name' => 'Открытое число подписчиков', 'status' => 'warn', 'detail' => 'Подписчики скрыты' ];
+        }
+
+        // Итоговый статус блока 1
+        if ( $has_fail ) {
+            $block_status = 'fail';
+        } elseif ( $has_warn ) {
+            $block_status = 'warn';
+        } else {
+            $block_status = 'ok';
+        }
+
+        return [ 'criteria' => $criteria, 'status' => $block_status ];
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // БЛОК 2: PHP-сигналы reused / mass-produced (§5.2.1)
+    // ─────────────────────────────────────────────────────────
+
+    private function eval_reused_signals( array $videos, float $vpm, float $avg_er, int $subs, array $channel ) {
+        $signals = [];
+        if ( empty( $videos ) ) return $signals;
+
+        $total = count( $videos );
+
+        // 1. Шаблонные названия (≥40% видео с одинаковой структурой)
+        $pattern_count = $this->count_template_titles( $videos );
+        $pattern_ratio = $total > 0 ? $pattern_count / $total : 0;
+        if ( $pattern_ratio >= 0.4 ) {
+            $pct       = round( $pattern_ratio * 100 );
+            $signals[] = [
+                'type'   => 'template_titles',
+                'level'  => 'high',
+                'title'  => 'Шаблонные названия видео',
+                'detail' => "{$pattern_count} из {$total} видео ({$pct}%) используют одинаковый паттерн названия",
+            ];
+        }
+
+        // 2. Одинаковая длительность (≥60% в диапазоне ±30 сек)
+        $duration_result = $this->check_uniform_duration( $videos );
+        if ( $duration_result['ratio'] >= 0.6 ) {
+            $pct       = round( $duration_result['ratio'] * 100 );
+            $min_str   = gmdate( 'H:i:s', $duration_result['median'] );
+            $signals[] = [
+                'type'   => 'uniform_duration',
+                'level'  => 'high',
+                'title'  => 'Одинаковая длительность видео',
+                'detail' => "{$pct}% видео имеют длительность ~{$min_str} (±30 сек) — признак конвейерного производства",
+            ];
+        }
+
+        // 3. Высокая частота + низкий ER (>20 вид/мес И ER <1% при <100k подписчиков)
+        if ( $vpm > 20 && $avg_er < 1.0 && $subs < 100000 ) {
+            $signals[] = [
+                'type'   => 'high_freq_low_er',
+                'level'  => 'high',
+                'title'  => 'Аномально высокая частота при низком ER',
+                'detail' => round( $vpm, 1 ) . ' видео/мес при среднем ER ' . round( $avg_er, 2 ) . '% — признак массового производства контента',
+            ];
+        }
+
+        // 4. Ключевые слова reused в тегах/названиях
+        $kw_signal = $this->check_reused_keywords( $videos );
+        if ( $kw_signal ) {
+            $signals[] = $kw_signal;
+        }
+
+        // 5. Новости/дайджесты + высокая частота
+        $topics = implode( ' ', $channel['topicDetails']['topicCategories'] ?? [] );
+        if ( stripos( $topics, 'News' ) !== false && $vpm > 10 ) {
+            $signals[] = [
+                'type'   => 'news_high_freq',
+                'level'  => 'high',
+                'title'  => 'Новостной контент с высокой частотой',
+                'detail' => 'Категория канала содержит "News" при частоте ' . round( $vpm, 1 ) . ' видео/мес',
+            ];
+        }
+
+        // 6. Умеренная частота (15–20 без прочих сигналов)
+        if ( $vpm >= 15 && $vpm <= 20 && empty( $signals ) ) {
+            $signals[] = [
+                'type'   => 'moderate_freq',
+                'level'  => 'medium',
+                'title'  => 'Умеренно высокая частота публикаций',
+                'detail' => round( $vpm, 1 ) . ' видео/мес — пограничный показатель, требует ручной проверки контента',
+            ];
+        }
+
+        return $signals;
+    }
+
+    /**
+     * Считает видео с шаблонными названиями.
+     * Паттерны: «ТОП-N», «[Что-то] за [время]», «Как [глагол]», повторяющийся префикс/суффикс.
+     */
+    private function count_template_titles( array $videos ) {
+        $titles = array_column( $videos, 'title' );
+
+        // Паттерны явного шаблона
+        $patterns = [
+            '/^ТОП[-–\s]?\d+/ui',
+            '/^TOP[-–\s]?\d+/ui',
+            '/\bза \d+\s*(минут|час|секунд|ден|нед|мес)/ui',
+            '/\bin \d+\s*(min|sec|hour|day|week)/ui',
+            '/^Как\s+\w+\s+\w+/ui',
+            '/^How to\s+/ui',
+            '/\bподборка\b/ui',
+            '/\bкомпиляция\b/ui',
+            '/\bнарезка\b/ui',
+            '/\breaction|реакция\b/ui',
+            '/\bфакты о\b/ui',
+            '/\binteresting facts\b/ui',
+        ];
+
+        $count = 0;
+        foreach ( $titles as $title ) {
+            foreach ( $patterns as $pattern ) {
+                if ( preg_match( $pattern, $title ) ) {
+                    $count++;
+                    break;
+                }
             }
         }
 
-        return $report;
+        // Дополнительно: если >50% названий начинаются с одинакового слова/фразы
+        if ( count( $titles ) >= 5 ) {
+            $first_words = [];
+            foreach ( $titles as $t ) {
+                $w = mb_strtolower( preg_replace( '/[^\p{L}]/u', ' ', mb_substr( $t, 0, 20 ) ) );
+                $first_words[] = trim( preg_replace( '/\s+/', ' ', $w ) );
+            }
+            $groups = [];
+            foreach ( $first_words as $w ) {
+                $prefix = mb_substr( $w, 0, 8 );
+                $groups[ $prefix ] = ( $groups[ $prefix ] ?? 0 ) + 1;
+            }
+            arsort( $groups );
+            $top_count = reset( $groups );
+            if ( $top_count / count( $titles ) >= 0.5 ) {
+                $count = max( $count, $top_count );
+            }
+        }
+
+        return min( $count, count( $titles ) );
     }
 
+    /**
+     * Проверяет однородность длительности (±30 сек вокруг медианы).
+     */
+    private function check_uniform_duration( array $videos ) {
+        $durations = array_column( $videos, 'duration_sec' );
+        $durations  = array_filter( $durations, fn( $d ) => $d > 0 );
+        if ( count( $durations ) < 3 ) return [ 'ratio' => 0, 'median' => 0 ];
+
+        sort( $durations );
+        $mid    = (int) floor( count( $durations ) / 2 );
+        $median = $durations[ $mid ];
+
+        $in_range = array_filter( $durations, fn( $d ) => abs( $d - $median ) <= 30 );
+        $ratio    = count( $in_range ) / count( $durations );
+
+        return [ 'ratio' => $ratio, 'median' => $median ];
+    }
+
+    /**
+     * Ищет reused-ключевые слова в тегах и названиях (§5.2.1 п.4).
+     */
+    private function check_reused_keywords( array $videos ) {
+        $keywords = [
+            'подборка', 'нарезка', 'compilation', 'реакция', 'reaction',
+            'перезалив', 'reupload', 'ai озвучка', 'ai voice', 'нейросеть',
+            'нейросети', 'artificial intelligence', 'shorts compilation',
+            'tiktok compilation', 'reels', 'лучшие моменты', 'топ моментов',
+            'приколы', 'мемы', 'memes', 'смешное', 'смешные',
+        ];
+
+        $found = [];
+        foreach ( $videos as $v ) {
+            $text = mb_strtolower( $v['title'] );
+            foreach ( ( $v['tags'] ?? [] ) as $tag ) {
+                $text .= ' ' . mb_strtolower( $tag );
+            }
+            foreach ( $keywords as $kw ) {
+                if ( strpos( $text, $kw ) !== false ) {
+                    $found[ $kw ] = ( $found[ $kw ] ?? 0 ) + 1;
+                }
+            }
+        }
+
+        if ( empty( $found ) ) return null;
+
+        arsort( $found );
+        $top   = array_slice( $found, 0, 3, true );
+        $words = implode( ', ', array_map( fn( $k, $v ) => "«{$k}» ({$v} видео)", array_keys( $top ), $top ) );
+
+        return [
+            'type'   => 'reused_keywords',
+            'level'  => 'high',
+            'title'  => 'Ключевые слова reused-контента',
+            'detail' => "В названиях/тегах найдены: {$words}",
+        ];
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // Вспомогательные метрики
+    // ─────────────────────────────────────────────────────────
+
+    public function calc_age_months( $published_at ) {
+        if ( empty( $published_at ) ) return 0;
+        $created = strtotime( $published_at );
+        if ( ! $created ) return 0;
+        $diff = ( time() - $created ) / ( 30.44 * 24 * 3600 );
+        return max( 0, round( $diff, 1 ) );
+    }
+
+    /**
+     * Видео в месяц за последние N месяцев (только публичные видео из $videos).
+     */
+    public function calc_videos_per_month( array $videos, int $months = 3 ) {
+        if ( empty( $videos ) ) return 0;
+        $cutoff = strtotime( "-{$months} months" );
+        $count  = 0;
+        foreach ( $videos as $v ) {
+            $pub = strtotime( $v['publishedAt'] ?? '' );
+            if ( $pub && $pub >= $cutoff ) {
+                $count++;
+            }
+        }
+        return round( $count / $months, 1 );
+    }
+
+    /**
+     * Средний ER = (likes / views) * 100 по последним видео с >0 просмотров.
+     */
+    public function calc_avg_er( array $videos ) {
+        $ers = [];
+        foreach ( $videos as $v ) {
+            if ( $v['viewCount'] > 0 ) {
+                $ers[] = ( $v['likeCount'] / $v['viewCount'] ) * 100;
+            }
+        }
+        if ( empty( $ers ) ) return 0;
+        return round( array_sum( $ers ) / count( $ers ), 2 );
+    }
+
+    /**
+     * Проверяет наличие паузы > $days_threshold дней среди последних видео.
+     */
+    public function has_regularity_gap( array $videos, int $days_threshold = 60 ) {
+        if ( count( $videos ) < 2 ) return false;
+        $dates = array_map( fn( $v ) => strtotime( $v['publishedAt'] ?? 0 ), $videos );
+        $dates = array_filter( $dates );
+        sort( $dates );
+
+        $cutoff = strtotime( '-3 months' );
+        $recent = array_filter( $dates, fn( $d ) => $d >= $cutoff );
+        if ( count( $recent ) < 2 ) return false;
+
+        $recent = array_values( $recent );
+        for ( $i = 1; $i < count( $recent ); $i++ ) {
+            $gap_days = ( $recent[ $i ] - $recent[ $i - 1 ] ) / 86400;
+            if ( $gap_days > $days_threshold ) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Определяет risk_block2 по количеству и уровню PHP-сигналов.
+     * По ТЗ §5.2.1: 2+ HIGH → 'high'; 1 HIGH → 'medium'; 0 HIGH → 'low'
+     */
+    public function get_block2_risk_from_signals( array $php_signals ) {
+        $high_count = 0;
+        foreach ( $php_signals as $s ) {
+            if ( ( $s['level'] ?? '' ) === 'high' ) {
+                $high_count++;
+            }
+        }
+        if ( $high_count >= 2 ) return 'high';
+        if ( $high_count >= 1 ) return 'medium';
+        return 'low';
+    }
 }

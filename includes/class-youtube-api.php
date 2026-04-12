@@ -1,177 +1,230 @@
 <?php
 /**
- * Обёртка над YouTube Data API v3.
- *
- * Использует server-side API key из wp_options (ключ 'payway_youtube_api_key').
- * Все запросы — публичные (без OAuth пользователя).
- *
- * @package Payway
- * @since   7.0
+ * PW_YouTube_API — получение данных канала через YouTube Data API v3
+ * Поля строго по ТЗ §4.3
  */
+class PW_YouTube_API {
 
-if ( ! defined( 'ABSPATH' ) ) {
-	exit;
-}
+    private $api_key;
+    const API_BASE = 'https://www.googleapis.com/youtube/v3/';
 
-class Payway_YouTube_API {
+    public function __construct() {
+        $this->api_key = get_option( 'payway_youtube_api_key', '' );
+    }
 
-	private const BASE_URL   = 'https://www.googleapis.com/youtube/v3/';
-	private const MAX_VIDEOS = 100;
+    /**
+     * Основной метод: возвращает данные канала + последние 20 видео.
+     * Кэш через WP transients (TTL 24 ч).
+     *
+     * @param string $channel_url  URL канала (любой поддерживаемый формат)
+     * @return array|WP_Error
+     */
+    public function get_channel_full_data( $channel_url ) {
+        if ( empty( $this->api_key ) ) {
+            return new WP_Error( 'no_api_key', 'YouTube API key не настроен' );
+        }
 
-	private string $api_key;
+        $channel_id = $this->resolve_channel_id( $channel_url );
+        if ( is_wp_error( $channel_id ) ) {
+            return $channel_id;
+        }
 
-	public function __construct() {
-		$this->api_key = (string) get_option( 'payway_youtube_api_key', '' );
-	}
+        // Кэш данных канала
+        $cache_key = 'payway_yt_' . md5( $channel_id );
+        $cached    = get_transient( $cache_key );
+        if ( false !== $cached ) {
+            return $cached;
+        }
 
-	/**
-	 * Загрузить полные данные канала по URL.
-	 *
-	 * @param string $channel_url
-	 * @return array
-	 * @throws RuntimeException
-	 */
-	public function get_channel_data( string $channel_url ): array {
-		$this->assert_key();
-		$params = $this->resolve_channel_params( $channel_url );
-		$data = $this->request( 'channels', array_merge( $params, [
-			'part'       => 'snippet,statistics,contentDetails',
-			'maxResults' => 1,
-		] ) );
-		if ( empty( $data['items'] ) ) {
-			throw new RuntimeException( 'YouTube канал не найден: ' . $channel_url );
-		}
-		$item    = $data['items'][0];
-		$snippet = $item['snippet']        ?? [];
-		$stats   = $item['statistics']     ?? [];
-		$content = $item['contentDetails'] ?? [];
-		return [
-			'channel_id'          => $item['id'],
-			'title'               => $snippet['title']                       ?? '',
-			'description'         => $snippet['description']                 ?? '',
-			'custom_url'          => $snippet['customUrl']                   ?? '',
-			'country'             => $snippet['country']                     ?? '',
-			'subscriber_count'    => (int) ( $stats['subscriberCount']       ?? 0 ),
-			'video_count'         => (int) ( $stats['videoCount']            ?? 0 ),
-			'view_count'          => (int) ( $stats['viewCount']             ?? 0 ),
-			'uploads_playlist_id' => $content['relatedPlaylists']['uploads'] ?? '',
-			'published_at'        => $snippet['publishedAt']                 ?? '',
-			'thumbnail_url'       => $snippet['thumbnails']['high']['url']   ?? '',
-		];
-	}
+        // 1. channels.list
+        $channel = $this->channels_list( $channel_id );
+        if ( is_wp_error( $channel ) ) return $channel;
 
-	/**
-	 * Загрузить последние N video_id из uploads-плейлиста.
-	 *
-	 * @param string $playlist_id
-	 * @param int    $limit
-	 * @return string[]
-	 */
-	public function get_video_ids( string $playlist_id, int $limit = self::MAX_VIDEOS ): array {
-		$this->assert_key();
-		$ids        = [];
-		$page_token = null;
-		while ( count( $ids ) < $limit ) {
-			$params = [
-				'part'       => 'contentDetails',
-				'playlistId' => $playlist_id,
-				'maxResults' => min( 50, $limit - count( $ids ) ),
-			];
-			if ( $page_token ) {
-				$params['pageToken'] = $page_token;
-			}
-			$data = $this->request( 'playlistItems', $params );
-			foreach ( $data['items'] ?? [] as $item ) {
-				$ids[] = $item['contentDetails']['videoId'] ?? '';
-			}
-			$ids        = array_filter( $ids );
-			$page_token = $data['nextPageToken'] ?? null;
-			if ( ! $page_token ) break;
-		}
-		return array_values( array_slice( $ids, 0, $limit ) );
-	}
+        // 2. Получаем ID плейлиста загрузок
+        $uploads_playlist = $channel['contentDetails']['relatedPlaylists']['uploads'] ?? '';
+        if ( empty( $uploads_playlist ) ) {
+            return new WP_Error( 'no_uploads', 'Не найден плейлист загрузок канала' );
+        }
 
-	/**
-	 * Загрузить детали видео батчами по 50.
-	 *
-	 * @param string[] $video_ids
-	 * @return array[]
-	 */
-	public function get_videos_details( array $video_ids ): array {
-		$this->assert_key();
-		$videos  = [];
-		$batches = array_chunk( $video_ids, 50 );
-		foreach ( $batches as $batch ) {
-			$data = $this->request( 'videos', [
-				'part'       => 'snippet,contentDetails,statistics,status',
-				'id'         => implode( ',', $batch ),
-				'maxResults' => 50,
-			] );
-			foreach ( $data['items'] ?? [] as $item ) {
-				$snippet = $item['snippet']        ?? [];
-				$content = $item['contentDetails'] ?? [];
-				$stats   = $item['statistics']     ?? [];
-				$status  = $item['status']         ?? [];
-				$videos[] = [
-					'id'                   => $item['id'],
-					'title'                => $snippet['title']                      ?? '',
-					'description'          => mb_substr( $snippet['description'] ?? '', 0, 500 ),
-					'tags'                 => $snippet['tags']                       ?? [],
-					'category_id'          => (int) ( $snippet['categoryId']          ?? 0 ),
-					'published_at'         => $snippet['publishedAt']                ?? '',
-					'duration'             => $content['duration']                   ?? '',
-					'made_for_kids'        => (bool) ( $status['madeForKids']        ?? false ),
-					'privacy_status'       => $status['privacyStatus']               ?? 'public',
-					'license'              => $status['license']                     ?? 'youtube',
-					'embeddable'           => (bool) ( $status['embeddable']         ?? true ),
-					'view_count'           => (int) ( $stats['viewCount']            ?? 0 ),
-					'like_count'           => (int) ( $stats['likeCount']            ?? 0 ),
-					'comment_count'        => (int) ( $stats['commentCount']         ?? 0 ),
-					'has_custom_thumbnail' => ! empty( $snippet['thumbnails']['maxres'] ),
-				];
-			}
-		}
-		return $videos;
-	}
+        // 3. playlistItems.list → последние 20 видео
+        $video_ids = $this->get_playlist_video_ids( $uploads_playlist, 20 );
+        if ( is_wp_error( $video_ids ) ) return $video_ids;
 
-	// ---- Internal helpers ----
+        // 4. videos.list с детальными данными
+        $videos = [];
+        if ( ! empty( $video_ids ) ) {
+            $videos = $this->videos_list( $video_ids );
+            if ( is_wp_error( $videos ) ) return $videos;
+        }
 
-	private function resolve_channel_params( string $url ): array {
-		$url = trim( $url );
-		if ( preg_match( '#youtube\.com/@([\w\-]+)#i', $url, $m ) ) {
-			return [ 'forHandle' => '@' . $m[1] ];
-		}
-		if ( preg_match( '#youtube\.com/channel/(UC[\w\-]+)#i', $url, $m ) ) {
-			return [ 'id' => $m[1] ];
-		}
-		if ( preg_match( '#youtube\.com/(?:c|user)/([\w\-]+)#i', $url, $m ) ) {
-			return [ 'forUsername' => $m[1] ];
-		}
-		if ( preg_match( '#^UC[\w\-]{22}$#', $url ) ) {
-			return [ 'id' => $url ];
-		}
-		throw new RuntimeException( 'Не удалось определить ID канала: ' . $url );
-	}
+        $result = [
+            'channel' => $channel,
+            'videos'  => $videos,
+        ];
 
-	private function request( string $endpoint, array $params ): array {
-		$params['key'] = $this->api_key;
-		$url           = self::BASE_URL . $endpoint . '?' . http_build_query( $params );
-		$response      = wp_remote_get( $url, [ 'timeout' => 15 ] );
-		if ( is_wp_error( $response ) ) {
-			throw new RuntimeException( 'YouTube API error: ' . $response->get_error_message() );
-		}
-		$code = wp_remote_retrieve_response_code( $response );
-		$body = json_decode( wp_remote_retrieve_body( $response ), true );
-		if ( $code !== 200 ) {
-			$msg = $body['error']['message'] ?? 'неизвестная ошибка';
-			throw new RuntimeException( "YouTube API {$code}: {$msg}" );
-		}
-		return $body;
-	}
+        set_transient( $cache_key, $result, 24 * HOUR_IN_SECONDS );
 
-	private function assert_key(): void {
-		if ( empty( $this->api_key ) ) {
-			throw new RuntimeException( 'YouTube API key не настроен (wp_options: payway_youtube_api_key).' );
-		}
-	}
+        return $result;
+    }
+
+    /**
+     * Определяет channel_id из различных форматов URL YouTube.
+     */
+    public function resolve_channel_id( $url ) {
+        $url = trim( $url );
+
+        // Прямой ID: UCxxxxxx
+        if ( preg_match( '/^UC[a-zA-Z0-9_-]{22}$/', $url ) ) {
+            return $url;
+        }
+
+        // /channel/UCxxxxxx
+        if ( preg_match( '#youtube\.com/channel/(UC[a-zA-Z0-9_-]{22})#', $url, $m ) ) {
+            return $m[1];
+        }
+
+        // /@handle или /c/name — нужен дополнительный запрос
+        $handle = null;
+        if ( preg_match( '#youtube\.com/@([^/?&]+)#', $url, $m ) ) {
+            $handle = $m[1];
+            return $this->resolve_by_handle( '@' . $handle );
+        }
+        if ( preg_match( '#youtube\.com/c/([^/?&]+)#', $url, $m ) ) {
+            $handle = $m[1];
+            return $this->resolve_by_handle( $handle );
+        }
+        if ( preg_match( '#youtube\.com/user/([^/?&]+)#', $url, $m ) ) {
+            $handle = $m[1];
+            return $this->resolve_by_handle( $handle );
+        }
+
+        return new WP_Error( 'invalid_url', 'Неверный формат URL YouTube-канала' );
+    }
+
+    private function resolve_by_handle( $handle ) {
+        $params = [
+            'part'           => 'id',
+            'forHandle'      => ltrim( $handle, '@' ),
+            'key'            => $this->api_key,
+            'maxResults'     => 1,
+        ];
+        $data = $this->make_request( 'channels', $params );
+        if ( is_wp_error( $data ) ) return $data;
+        $channel_id = $data['items'][0]['id'] ?? null;
+        if ( ! $channel_id ) {
+            return new WP_Error( 'channel_not_found', 'Канал не найден: ' . $handle );
+        }
+        return $channel_id;
+    }
+
+    /**
+     * channels.list — все части по ТЗ §4.3
+     */
+    private function channels_list( $channel_id ) {
+        $params = [
+            'part' => 'snippet,statistics,status,topicDetails,contentDetails',
+            'id'   => $channel_id,
+            'key'  => $this->api_key,
+        ];
+        $data = $this->make_request( 'channels', $params );
+        if ( is_wp_error( $data ) ) return $data;
+        if ( empty( $data['items'] ) ) {
+            return new WP_Error( 'channel_not_found', 'Канал не найден по ID: ' . $channel_id );
+        }
+        return $data['items'][0];
+    }
+
+    /**
+     * playlistItems.list — получаем ID последних N видео
+     */
+    private function get_playlist_video_ids( $playlist_id, $max = 20 ) {
+        $params = [
+            'part'       => 'contentDetails',
+            'playlistId' => $playlist_id,
+            'maxResults' => $max,
+            'key'        => $this->api_key,
+        ];
+        $data = $this->make_request( 'playlistItems', $params );
+        if ( is_wp_error( $data ) ) return $data;
+
+        $ids = [];
+        foreach ( $data['items'] ?? [] as $item ) {
+            $vid = $item['contentDetails']['videoId'] ?? null;
+            if ( $vid ) $ids[] = $vid;
+        }
+        return $ids;
+    }
+
+    /**
+     * videos.list — детальные данные видео по ТЗ §4.3
+     * snippet, statistics, contentDetails, status
+     */
+    private function videos_list( array $video_ids ) {
+        if ( empty( $video_ids ) ) return [];
+
+        // API принимает до 50 ID за раз; берём первый 20
+        $ids = array_slice( $video_ids, 0, 20 );
+
+        $params = [
+            'part' => 'snippet,statistics,contentDetails,status',
+            'id'   => implode( ',', $ids ),
+            'key'  => $this->api_key,
+        ];
+        $data = $this->make_request( 'videos', $params );
+        if ( is_wp_error( $data ) ) return $data;
+
+        $videos = [];
+        foreach ( $data['items'] ?? [] as $item ) {
+            // Пропускаем скрытые видео
+            if ( ( $item['status']['privacyStatus'] ?? 'public' ) !== 'public' ) {
+                continue;
+            }
+            $videos[] = [
+                'id'           => $item['id'],
+                'title'        => $item['snippet']['title'] ?? '',
+                'publishedAt'  => $item['snippet']['publishedAt'] ?? '',
+                'tags'         => $item['snippet']['tags'] ?? [],
+                'categoryId'   => $item['snippet']['categoryId'] ?? '',
+                'viewCount'    => (int) ( $item['statistics']['viewCount'] ?? 0 ),
+                'likeCount'    => (int) ( $item['statistics']['likeCount'] ?? 0 ),
+                'commentCount' => (int) ( $item['statistics']['commentCount'] ?? 0 ),
+                'duration_sec' => $this->parse_duration( $item['contentDetails']['duration'] ?? 'PT0S' ),
+                'privacyStatus'=> $item['status']['privacyStatus'] ?? 'public',
+            ];
+        }
+        return $videos;
+    }
+
+    /**
+     * Парсит ISO 8601 duration (PT1H2M3S) в секунды
+     */
+    public function parse_duration( $duration ) {
+        preg_match( '/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/', $duration, $m );
+        return (int) ( $m[1] ?? 0 ) * 3600
+             + (int) ( $m[2] ?? 0 ) * 60
+             + (int) ( $m[3] ?? 0 );
+    }
+
+    /**
+     * HTTP-запрос к YouTube Data API v3
+     */
+    private function make_request( $endpoint, array $params ) {
+        $url      = self::API_BASE . $endpoint . '?' . http_build_query( $params );
+        $response = wp_remote_get( $url, [ 'timeout' => 15 ] );
+
+        if ( is_wp_error( $response ) ) {
+            return new WP_Error( 'yt_http_error', $response->get_error_message() );
+        }
+
+        $code = wp_remote_retrieve_response_code( $response );
+        $body = wp_remote_retrieve_body( $response );
+        $data = json_decode( $body, true );
+
+        if ( $code !== 200 ) {
+            $msg = $data['error']['message'] ?? "HTTP {$code}";
+            return new WP_Error( 'yt_api_error', 'YouTube API: ' . $msg );
+        }
+
+        return $data;
+    }
 }

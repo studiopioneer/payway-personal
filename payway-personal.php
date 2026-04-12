@@ -51,7 +51,7 @@ require_once PAYWAY_PLUGIN_DIR . '/includes/class-audit-credit.php';
 require_once PAYWAY_PLUGIN_DIR . '/includes/class-audit-rest.php';
 require_once PAYWAY_PLUGIN_DIR . '/includes/class-audit-cron.php';
 
-add_action( 'rest_api_init', [ 'PW_Audit_REST', 'register_routes' ] );
+add_action( 'rest_api_init', function () { $c = new PW_Audit_REST(); $c->register_routes(); } );
 PW_Audit_Cron::register_hooks();
 // ── Admin settings page (API keys) ──────────────────────────────────────────
 if ( is_admin() ) {
@@ -140,3 +140,73 @@ add_action( 'template_redirect', function () {
 		}
 	}
 } );
+// ── Audit UI v2: CSS + JS ──────────────────────────────────────
+
+// -- Audit nonce injection via wp_head (fetch interceptor) ----------------
+add_action( 'wp_head', function () {
+    if ( strpos( $_SERVER['REQUEST_URI'] ?? '', '/audit' ) === false ) return;
+    $nonce = wp_create_nonce( 'wp_rest' );
+    echo '<script>window.paywayAuditCfg={nonce:"' . esc_js( $nonce ) . '"};' .
+         'window.__paywayFetchPatched||(window.__paywayFetchPatched=1,(function(){' .
+         'var oF=window.fetch;window.fetch=function(u,o){' .
+         'if(typeof u==="string"&&u.indexOf("/payway/v1/")>-1){' .
+         'o=Object.assign({},o||{});var h=o.headers||{};' .
+         'if(h instanceof Headers){h=Object.fromEntries(h.entries());}' .
+         'h["X-WP-Nonce"]=(window.paywayAuditCfg&&window.paywayAuditCfg.nonce)||"";' .
+         'o.headers=h;}return oF.call(this,u,o);}})());</script>';
+} );
+
+add_action( 'wp_enqueue_scripts', function () {
+    if ( strpos( $_SERVER['REQUEST_URI'] ?? '', '/audit' ) === false ) {
+        return;
+    }
+    wp_enqueue_style(
+        'payway-audit-ui',
+        plugin_dir_url( __FILE__ ) . 'assets/audit-ui-inject.css',
+        [], '2.0'
+    );
+    wp_enqueue_script(
+        'payway-audit-ui',
+        plugin_dir_url( __FILE__ ) . 'assets/audit-ui-inject.js',
+        [], '2.0', true
+    );
+    wp_localize_script( 'payway-audit-ui', 'paywayAuditCfg', [ 'nonce' => wp_create_nonce( 'wp_rest' ) ] );
+    // fetch_interceptor: auto-inject WP REST nonce into payway API calls
+    wp_add_inline_script(
+        'payway-audit-ui',
+        'window.__paywayFetchPatched||(window.__paywayFetchPatched=1,(function(){var oF=window.fetch;window.fetch=function(u,o){if(typeof u==="string"&&u.indexOf("/payway/v1/")>-1){o=Object.assign({},o||{});var h=o.headers||{};if(h instanceof Headers){h=Object.fromEntries(h.entries());}h["X-WP-Nonce"]=(window.paywayAuditCfg&&window.paywayAuditCfg.nonce)||"";o.headers=h;}return oF.call(this,u,o);}})());',
+        'before'
+    );
+});
+
+// ── Audit history loader v2 (footer injection) ─────────────────
+function payway_inject_audit_history_loader_v2() {
+    if ( strpos( $_SERVER['REQUEST_URI'] ?? '', '/audit' ) === false ) return;
+    ?>
+    <script>
+    (function(){
+        var id = new URLSearchParams(location.search).get('id');
+        if (!id) return;
+        function getStore() {
+            try {
+                var el = document.querySelector('[data-v-app]');
+                if (!el || !el.__vue_app__) return null;
+                var pinia = el.__vue_app__.config.globalProperties.$pinia;
+                if (!pinia || !pinia._s) return null;
+                return pinia._s.get('audit');
+            } catch(e) { return null; }
+        }
+        function tryLoad(n) {
+            if (n <= 0) return;
+            var s = getStore();
+            if (!s) { setTimeout(function(){ tryLoad(n-1); }, 400); return; }
+            if (s.report && s.report.id === parseInt(id)) return;
+            s.auditId = parseInt(id);
+            if (typeof s.pollStatus === 'function') s.pollStatus();
+        }
+        setTimeout(function(){ tryLoad(25); }, 800);
+    })();
+    </script>
+    <?php
+}
+add_action( 'wp_footer', 'payway_inject_audit_history_loader_v2' );

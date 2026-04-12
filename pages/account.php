@@ -31,6 +31,28 @@ $css_urls = ( $css_files && count( $css_files ) )  ? array_map( function( $f ) u
 </head>
 <body>
 <div id="root"></div>
+<?php
+$nonce = wp_create_nonce( 'wp_rest' );
+echo '<script>window.paywayAuditCfg={nonce:"' . esc_js( $nonce ) . '"};' .
+     'window.__paywayFetchPatched||(window.__paywayFetchPatched=1,(function(){' .
+     'var oF=window.fetch;window.fetch=function(u,o){' .
+     'if(typeof u==="string"&&u.indexOf("/payway/v1/")>-1){' .
+     'o=Object.assign({},o||{});var h=o.headers||{};' .
+     'if(h instanceof Headers){h=Object.fromEntries(h.entries());}' .
+     'h["X-WP-Nonce"]=(window.paywayAuditCfg&&window.paywayAuditCfg.nonce)||"";' .
+     'o.headers=h;}return oF.call(this,u,o);}})());</script>';
+?>
+<?php
+$nonce = wp_create_nonce( 'wp_rest' );
+echo '<script>window.paywayAuditCfg={nonce:"' . esc_js( $nonce ) . '"};' .
+     'window.__paywayFetchPatched||(window.__paywayFetchPatched=1,(function(){' .
+     'var oF=window.fetch;window.fetch=function(u,o){' .
+     'if(typeof u==="string"&&u.indexOf("/payway/v1/")>-1){' .
+     'o=Object.assign({},o||{});var h=o.headers||{};' .
+     'if(h instanceof Headers){h=Object.fromEntries(h.entries());}' .
+     'h["X-WP-Nonce"]=(window.paywayAuditCfg&&window.paywayAuditCfg.nonce)||"";' .
+     'o.headers=h;}return oF.call(this,u,o);}})());</script>';
+?>
 <?php wp_footer(); ?>
 </body>
 </html>

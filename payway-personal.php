@@ -45,6 +45,13 @@ require_once PAYWAY_PLUGIN_DIR . '/includes/class-audit-rate-limiter.php';
 require_once PAYWAY_PLUGIN_DIR . '/includes/class-youtube-api.php';
 require_once PAYWAY_PLUGIN_DIR . '/includes/class-audit-analyzer.php';
 require_once PAYWAY_PLUGIN_DIR . '/includes/class-audit-repository.php';
+//  Channel Audit: Sprint 2 (OpenAI + REST API + Cron) 
+require_once PAYWAY_PLUGIN_DIR . '/includes/class-openai-client.php';
+require_once PAYWAY_PLUGIN_DIR . '/includes/class-audit-rest.php';
+require_once PAYWAY_PLUGIN_DIR . '/includes/class-audit-cron.php';
+
+add_action( 'rest_api_init', [ 'PW_Audit_REST', 'register_routes' ] );
+PW_Audit_Cron::register_hooks();
 
 // ── Admin bar ─────────────────────────────────────────────────────────────────
 add_filter( 'show_admin_bar', fn( $show ) => current_user_can( 'administrator' ) );

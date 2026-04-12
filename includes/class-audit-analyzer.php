@@ -328,4 +328,67 @@ class Payway_Audit_Analyzer {
 		];
 		return $map[ $block ][ $risk ] ?? '';
 	}
+    //  Sprint 2: OpenAI full analysis 
+
+    /**
+     * Send the AI payload to OpenAI gpt-4o and get the full structured report.
+     *
+     * Expected JSON response shape:
+     * {
+     *   "admission":       { "verdict": "allowed|denied|needs_check", "summary": "...", "bullets": [...] },
+     *   "demonetization":  { "risk": "low|medium|high", "summary": "...", "bullets": [...] },
+     *   "copyright":       { "risk": "low|medium|high", "summary": "...", "bullets": [...] },
+     *   "overall_summary": "...",
+     *   "recommendations": [...]
+     * }
+     *
+     * @param  array $ai_payload Output of build_ai_payload().
+     * @return array Decoded AI report.
+     * @throws RuntimeException If OpenAI fails or returns invalid JSON.
+     */
+    public function analyze_with_ai( array $ai_payload ): array {
+        $client = new PW_OpenAI_Client();
+
+        $system = <<<PROMPT
+You are an expert YouTube channel compliance analyst. Analyse the provided channel data and return a structured JSON audit report. Be objective and concise.
+
+Return ONLY a valid JSON object with this exact structure:
+{
+  "admission": {
+    "verdict": "allowed | denied | needs_check",
+    "summary": "2-3 sentence explanation",
+    "bullets": ["key point 1", "key point 2", "key point 3"]
+  },
+  "demonetization": {
+    "risk": "low | medium | high",
+    "summary": "2-3 sentence explanation",
+    "bullets": ["key point 1", "key point 2", "key point 3"]
+  },
+  "copyright": {
+    "risk": "low | medium | high",
+    "summary": "2-3 sentence explanation",
+    "bullets": ["key point 1", "key point 2", "key point 3"]
+  },
+  "overall_summary": "3-4 sentence executive summary",
+  "recommendations": ["action 1", "action 2", "action 3"]
+}
+
+Use the rule-based pre-analysis (admission_verdict, demonetization_risk, copyright_risk) as guidance but apply your own reasoning based on the full video data.
+PROMPT;
+
+        $user = json_encode( $ai_payload, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT );
+
+        $report = $client->ask_json( $system, $user, 'gpt-4o', 2000 );
+
+        // Validate required top-level keys
+        $required = [ 'admission', 'demonetization', 'copyright', 'overall_summary', 'recommendations' ];
+        foreach ( $required as $key ) {
+            if ( ! array_key_exists( $key, $report ) ) {
+                throw new \RuntimeException( "OpenAI report missing key: {$key}" );
+            }
+        }
+
+        return $report;
+    }
+
 }

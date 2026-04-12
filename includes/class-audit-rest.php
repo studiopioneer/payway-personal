@@ -1,0 +1,119 @@
+<?php
+defined( "ABSPATH" ) || exit;
+class PW_Audit_REST {
+    private const NS = "payway/v1";
+    public static function register_routes(): void {
+        register_rest_route( self::NS, "/audit/start", [
+            "methods"             => WP_REST_Server::CREATABLE,
+            "callback"            => [ self::class, "start_audit" ],
+            "permission_callback" => [ self::class, "require_auth" ],
+            "args"                => [
+                "channel_url" => [
+                    "required"          => true,
+                    "type"              => "string",
+                    "sanitize_callback" => "sanitize_text_field",
+                    "validate_callback" => [ self::class, "validate_channel_url" ],
+                ],
+            ],
+        ] );
+        register_rest_route( self::NS, "/audit/(?P<id>\d+)", [
+            "methods"             => WP_REST_Server::READABLE,
+            "callback"            => [ self::class, "get_audit" ],
+            "permission_callback" => [ self::class, "require_auth" ],
+            "args"                => [ "id" => [ "required" => true, "type" => "integer" ] ],
+        ] );
+        register_rest_route( self::NS, "/audit/history", [
+            "methods"             => WP_REST_Server::READABLE,
+            "callback"            => [ self::class, "get_history" ],
+            "permission_callback" => [ self::class, "require_auth" ],
+            "args"                => [
+                "page"     => [ "type" => "integer", "default" => 1,  "minimum" => 1 ],
+                "per_page" => [ "type" => "integer", "default" => 10, "minimum" => 1, "maximum" => 50 ],
+            ],
+        ] );
+    }
+    public static function require_auth() {
+        if ( ! is_user_logged_in() ) {
+            return new WP_Error( "rest_forbidden", "You must be logged in.", [ "status" => 401 ] );
+        }
+        return true;
+    }
+    public static function validate_channel_url( $value ) {
+        $value = trim( $value );
+        if ( empty( $value ) ) return new WP_Error( "invalid_url", "channel_url is required." );
+        $patterns = [
+            "#^https?://(www\.)?youtube\.com/(@[\w.-]+|channel/UC[\w-]+|c/[\w.-]+|user/[\w.-]+)#i",
+            "#^@[\w.-]+$#",
+        ];
+        foreach ( $patterns as $p ) { if ( preg_match( $p, $value ) ) return true; }
+        return new WP_Error( "invalid_channel_url", "Provide a valid YouTube channel URL or @handle.", [ "status" => 422 ] );
+    }
+    public static function start_audit( WP_REST_Request $request ) {
+        $user_id     = get_current_user_id();
+        $channel_url = trim( $request->get_param( "channel_url" ) );
+        if ( ! PW_Audit_Rate_Limiter::can_start_audit( $user_id ) ) {
+            if ( ! PW_Audit_Rate_Limiter::can_use_daily_credit( $user_id ) ) {
+                return new WP_Error( "rate_limit_exceeded", "Hourly limit reached. Daily bonus credit is also spent.", [ "status" => 429 ] );
+            }
+            PW_Audit_Rate_Limiter::consume_daily_credit( $user_id );
+        } else {
+            PW_Audit_Rate_Limiter::record_audit_start( $user_id );
+        }
+        $audit_id = PW_Audit_Repository::create( $user_id, $channel_url );
+        if ( ! $audit_id ) return new WP_Error( "db_error", "Failed to create audit record.", [ "status" => 500 ] );
+        wp_schedule_single_event( time(), PW_Audit_Cron::HOOK, [ $audit_id ] );
+        return new WP_REST_Response( [ "audit_id" => $audit_id, "status" => "pending" ], 201 );
+    }
+    public static function get_audit( WP_REST_Request $request ) {
+        $user_id  = get_current_user_id();
+        $audit_id = (int) $request->get_param( "id" );
+        $audit = PW_Audit_Repository::find_for_user( $audit_id, $user_id );
+        if ( ! $audit ) return new WP_Error( "not_found", "Audit not found.", [ "status" => 404 ] );
+        $preview     = ! empty( $audit["report_preview"] ) ? json_decode( $audit["report_preview"], true ) : null;
+        $full_report = ( ! empty( $audit["report_full"] ) && (bool) $audit["is_paid"] ) ? json_decode( $audit["report_full"], true ) : null;
+        return new WP_REST_Response( [
+            "id"                  => (int) $audit["id"],
+            "channel_id"          => $audit["channel_id"],
+            "channel_title"       => $audit["channel_title"],
+            "channel_url"         => $audit["channel_url"],
+            "status"              => $audit["status"],
+            "admission_verdict"   => $audit["admission_verdict"],
+            "demonetization_risk" => $audit["demonetization_risk"],
+            "copyright_risk"      => $audit["copyright_risk"],
+            "is_paid"             => (bool) $audit["is_paid"],
+            "report_preview"      => $preview,
+            "report_full"         => $full_report,
+            "error_message"       => $audit["error_message"],
+            "created_at"          => $audit["created_at"],
+            "updated_at"          => $audit["updated_at"],
+        ], 200 );
+    }
+    public static function get_history( WP_REST_Request $request ) {
+        $user_id  = get_current_user_id();
+        $page     = (int) $request->get_param( "page" );
+        $per_page = (int) $request->get_param( "per_page" );
+        $result   = PW_Audit_Repository::list_for_user( $user_id, $page, $per_page );
+        $items = array_map( static function ( array $row ): array {
+            return [
+                "id"                  => (int) $row["id"],
+                "channel_id"          => $row["channel_id"],
+                "channel_title"       => $row["channel_title"],
+                "channel_url"         => $row["channel_url"],
+                "status"              => $row["status"],
+                "admission_verdict"   => $row["admission_verdict"],
+                "demonetization_risk" => $row["demonetization_risk"],
+                "copyright_risk"      => $row["copyright_risk"],
+                "is_paid"             => (bool) $row["is_paid"],
+                "created_at"          => $row["created_at"],
+                "updated_at"          => $row["updated_at"],
+            ];
+        }, $result["items"] );
+        return new WP_REST_Response( [
+            "items"       => $items,
+            "total"       => (int) $result["total"],
+            "total_pages" => (int) $result["total_pages"],
+            "page"        => $page,
+            "per_page"    => $per_page,
+        ], 200 );
+    }
+}

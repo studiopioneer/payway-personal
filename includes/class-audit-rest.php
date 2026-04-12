@@ -103,8 +103,7 @@ class PW_Audit_REST {
             "is_paid"             => (bool) $audit["is_paid"],
             "report_preview"      => $preview,
             "report_full"         => $full_report,
-            "report"     => $full_report ?: $preview,
-            "report"         => $$full_report ?: $preview,
+            "report" => self::normalize_report( $full_report ?? ($preview['preview'] ?? $preview) ),
             "error_message"       => $audit["error_message"],
             "created_at"          => $audit["created_at"],
             "updated_at"          => $audit["updated_at"],
@@ -237,4 +236,28 @@ class PW_Audit_REST {
         ], 402 );
     }
 
+
+    private static function normalize_report( ?array $r ): ?array {
+        if ( ! $r ) return null;
+        $verdict = $r['admission']['verdict'] ?? 'allowed';
+        $map = ['denied' => 'high', 'needs_check' => 'medium', 'allowed' => 'low'];
+        return [
+            'summary'         => $r['overall_summary'] ?? ( $r['summary'] ?? '' ),
+            'admission'       => [
+                'risk'    => $map[ $verdict ] ?? 'low',
+                'details' => $r['admission']['summary'] ?? '',
+            ],
+            'demonetization'  => [
+                'risk'    => $r['demonetization']['risk'] ?? 'low',
+                'details' => $r['demonetization']['summary'] ?? '',
+            ],
+            'copyright'       => [
+                'risk'    => $r['copyright']['risk'] ?? 'low',
+                'details' => $r['copyright']['summary'] ?? '',
+            ],
+            'recommendations'    => $r['recommendations'] ?? [],
+            'problematic_videos' => $r['problematic_videos'] ?? [],
+            'action_plan'        => $r['action_plan'] ?? [],
+        ];
+    }
 }

@@ -1,6 +1,6 @@
 /**
  * PayWay Audit UI Injector v4
- * Ð§Ð¸ÑÐ°ÐµÑ Ð´Ð°Ð½Ð½ÑÐµ Ð¸Ð· Pinia store Ð¸ Ð¿ÐµÑÐµÑÑÑÐ°Ð¸Ð²Ð°ÐµÑ DOM Ð¿Ð¾Ð´ Ð¿ÑÐ¾ÑÐ¾ÑÐ¸Ð¿ v2
+ * \u0427\u0438\u0442\u0430\u0435\u0442 \u0434\u0430\u043d\u043d\u044b\u0435 \u0438\u0437 Pinia store \u0438 \u043f\u0435\u0440\u0435\u0441\u0442\u0440\u0430\u0438\u0432\u0430\u0435\u0442 DOM \u043f\u043e\u0434 \u043f\u0440\u043e\u0442\u043e\u0442\u0438\u043f v2
  *
  * store.report  : { verdict, verdict_reason, summary, admission, demonetization, copyright }
  *   admission/demonetization/copyright: { risk, details }
@@ -13,7 +13,7 @@
 (function () {
   'use strict';
 
-  // ââ CSS (Ð¾Ð´Ð½Ð¾ÑÐ°Ð·Ð¾Ð²ÑÐ¹ Ð¸Ð½Ð¶ÐµÐºÑ) âââââââââââââââââââââââââââââââââââââââââââââ
+  // \u2500\u2500 CSS (\u043e\u0434\u043d\u043e\u0440\u0430\u0437\u043e\u0432\u044b\u0439 \u0438\u043d\u0436\u0435\u043a\u0442) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   var CSS_ID = 'pw-aui-style-v4';
   if (!document.getElementById(CSS_ID)) {
     var style = document.createElement('style');
@@ -138,7 +138,7 @@
     document.head.appendChild(style);
   }
 
-  // ââ SVG Ð¸ÐºÐ¾Ð½ÐºÐ¸ ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // \u2500\u2500 SVG \u0438\u043a\u043e\u043d\u043a\u0438 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   var ICONS = {
     check:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>',
     x:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
@@ -146,7 +146,7 @@
     check_v: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
   };
 
-  // ââ ÐÑÐ¿Ð¾Ð¼Ð¾Ð³Ð°ÑÐµÐ»ÑÐ½ÑÐµ ÑÑÐ½ÐºÑÐ¸Ð¸ âââââââââââââââââââââââââââââââââââââââââââââ
+  // \u2500\u2500 \u0412\u0441\u043f\u043e\u043c\u043e\u0433\u0430\u0442\u0435\u043b\u044c\u043d\u044b\u0435 \u0444\u0443\u043d\u043a\u0446\u0438\u0438 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   function h(tag, attrs, inner) {
     var el = document.createElement(tag);
     if (attrs) Object.keys(attrs).forEach(function (k) { el.setAttribute(k, attrs[k]); });
@@ -155,7 +155,7 @@
   }
 
   function riskLabel(risk) {
-    return ({ low: 'ÐÐ¸Ð·ÐºÐ¸Ð¹', medium: 'Ð¡ÑÐµÐ´Ð½Ð¸Ð¹', high: 'ÐÑÑÐ¾ÐºÐ¸Ð¹', ok: 'ÐÑÐ¾Ð¹Ð´ÐµÐ½', warn: 'ÐÐ½Ð¸Ð¼Ð°Ð½Ð¸Ðµ', fail: 'ÐÑÐ¾Ð²Ð°Ð»' })[risk] || (risk || 'ÐÐµÑ Ð´Ð°Ð½Ð½ÑÑ');
+    return ({ low: '\u041d\u0438\u0437\u043a\u0438\u0439', medium: '\u0421\u0440\u0435\u0434\u043d\u0438\u0439', high: '\u0412\u044b\u0441\u043e\u043a\u0438\u0439', ok: '\u041f\u0440\u043e\u0439\u0434\u0435\u043d', warn: '\u0412\u043d\u0438\u043c\u0430\u043d\u0438\u0435', fail: '\u041f\u0440\u043e\u0432\u0430\u043b' })[risk] || (risk || '\u041d\u0435\u0442 \u0434\u0430\u043d\u043d\u044b\u0445');
   }
 
   function riskCls(risk) {
@@ -170,7 +170,7 @@
     return '<span class="' + riskCls(risk) + '"><span class="pw-rb-dot"></span>' + riskLabel(risk) + '</span>';
   }
 
-  // ââ Pinia store âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // \u2500\u2500 Pinia store \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   function getStore() {
     try {
       var el = document.querySelector('[data-v-app]');
@@ -181,7 +181,7 @@
     } catch (e) { return null; }
   }
 
-  // ââ ÐÐµÑÐ´Ð¸ÐºÑ: Ð²ÑÐ²ÐµÑÑÐ¸ Ð¸Ð· ÑÐ¸ÑÐºÐ¾Ð² Ð±Ð»Ð¾ÐºÐ¾Ð² ÐµÑÐ»Ð¸ ÑÐ²Ð½Ð¾ Ð½Ðµ Ð·Ð°Ð´Ð°Ð½ âââââââââââââââ
+  // \u2500\u2500 \u0412\u0435\u0440\u0434\u0438\u043a\u0442: \u0432\u0444\u0432\u0435\u0441\u0442\u0438 \u0438\u0437 \u0440\u0438\u0441\u043a\u043e\u0432 \u0431\u043b\u043e\u043a\u043e\u0432 \u0435\u0441\u043b\u0438 \u044f\u0432\u043d\u043e \u043d\u0435 \u0437\u0430\u0434\u0430\u043d \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   function deriveVerdict(report) {
     if (report.verdict) return report.verdict;
     var b1 = (report.admission      && report.admission.risk)      || 'ok';
@@ -192,15 +192,15 @@
     return 'accept';
   }
 
-  // ââ Verdict Banner âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // \u2500\u2500 Verdict Banner \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   function buildVerdictBanner(report) {
     var v = deriveVerdict(report);
     var reason = report.verdict_reason || report.summary || '';
     var cfg = {
-      accept: { cls: 'pw-verdict-accept', icon: ICONS.check_v, title: 'ÐÐ°Ð½Ð°Ð» ÑÐ¾Ð¾ÑÐ²ÐµÑÑÑÐ²ÑÐµÑ ÑÑÐµÐ±Ð¾Ð²Ð°Ð½Ð¸ÑÐ¼ Ð¼Ð¾Ð½ÐµÑÐ¸Ð·Ð°ÑÐ¸Ð¸' },
-      reject: { cls: 'pw-verdict-reject', icon: ICONS.x,       title: 'ÐÐ°Ð½Ð°Ð» Ð½Ðµ ÑÐ¾Ð¾ÑÐ²ÐµÑÑÑÐ²ÑÐµÑ ÑÑÐµÐ±Ð¾Ð²Ð°Ð½Ð¸ÑÐ¼' },
-      manual: { cls: 'pw-verdict-manual', icon: ICONS.warn,    title: 'Ð¢ÑÐµÐ±ÑÐµÑ ÑÑÑÐ½Ð¾Ð¹ Ð¿ÑÐ¾Ð²ÐµÑÐºÐ¸' },
-    }[v] || { cls: 'pw-verdict-manual', icon: ICONS.warn, title: 'Ð¢ÑÐµÐ±ÑÐµÑ ÑÑÑÐ½Ð¾Ð¹ Ð¿ÑÐ¾Ð²ÐµÑÐºÐ¸' };
+      accept: { cls: 'pw-verdict-accept', icon: ICONS.check_v, title: '\u041a\u0430\u043d\u0430\u043b \u0441\u043e\u043e\u0442\u0432\u0435\u0442\u0441\u0442\u0432\u0443\u0435\u0442 \u0442\u0440\u0435\u0431\u043e\u0432\u0430\u043d\u0438\u044f\u043c \u043c\u043e\u043d\u0435\u0442\u0438\u0437\u0430\u0446\u0438\u0438' },
+      reject: { cls: 'pw-verdict-reject', icon: ICONS.x,       title: '\u041a\u0430\u043d\u0430\u043b \u043d\u0435 \u0441\u043e\u043e\u0442\u0432\u0435\u0442\u0441\u0442\u0432\u0443\u0435\u0442 \u0442\u0440\u0435\u0431\u043e\u0432\u0430\u043d\u0438\u044f\u043c' },
+      manual: { cls: 'pw-verdict-manual', icon: ICONS.warn,    title: '\u0422\u0440\u0435\u0431\u0443\u0435\u0442 \u0440\u0443\u0447\u043d\u043e\u0439 \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0438' },
+    }[v] || { cls: 'pw-verdict-manual', icon: ICONS.warn, title: '\u0422\u0440\u0435\u0431\u0443\u0435\u0442 \u0440\u0443\u0447\u043d\u043e\u0439 \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0438' };
 
     var el   = h('div', { class: 'pw-verdict ' + cfg.cls });
     var icon = h('div', { class: 'pw-v-icon' }, cfg.icon);
@@ -212,13 +212,13 @@
     return el;
   }
 
-  // ââ 3 ÐºÐ°ÑÑÐ¾ÑÐºÐ¸ Ð±Ð»Ð¾ÐºÐ¾Ð² ââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // \u2500\u2500 3 \u043a\u0430\u0440\u0442\u043e\u0447\u043a\u0438 \u0431\u043b\u043e\u043a\u043e\u0432 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   function buildBlocksRow(report) {
     var row = h('div', { class: 'pw-blocks-row' });
     [
-      { label: 'ÐÐ»Ð¾Ðº 1', title: 'ÐÐ¾Ð¿ÑÑÐº Ðº Ð¼Ð¾Ð½ÐµÑÐ¸Ð·Ð°ÑÐ¸Ð¸',      risk: (report.admission      && report.admission.risk)      || 'ok'  },
-      { label: 'ÐÐ»Ð¾Ðº 2', title: 'Ð Ð¸ÑÐº Ð´ÐµÐ¼Ð¾Ð½ÐµÑÐ¸Ð·Ð°ÑÐ¸Ð¸',        risk: (report.demonetization && report.demonetization.risk) || 'low' },
-      { label: 'ÐÐ»Ð¾Ðº 3', title: 'ÐÐ²ÑÐ¾ÑÑÐºÐ¸Ðµ Ð¿ÑÐ°Ð²Ð° / ÑÑÑÐ°Ð¹ÐºÐ¸', risk: (report.copyright      && report.copyright.risk)      || 'low' },
+      { label: '\u0411\u043b\u043e\u043a 1', title: '\u0414\u043e\u043f\u0443\u0441\u043a \u043a \u043c\u043e\u043d\u0435\u0442\u0438\u0437\u0430\u0446\u0438\u0438',      risk: (report.admission      && report.admission.risk)      || 'ok'  },
+      { label: '\u0411\u043b\u043e\u043a 2', title: '\u0420\u0438\u0441\u043a \u0434\u0435\u043c\u043e\u043d\u0435\u0442\u0438\u0437\u0430\u0446\u0438\u0438',        risk: (report.demonetization && report.demonetization.risk) || 'low' },
+      { label: '\u0411\u043b\u043e\u043a 3', title: '\u0410\u0432\u0442\u043e\u0440\u0441\u043a\u0438\u0435 \u043f\u0440\u0430\u0432\u0430 / \u0441\u0442\u0440\u0430\u0439\u043a\u0438', risk: (report.copyright      && report.copyright.risk)      || 'low' },
     ].forEach(function (b) {
       var card = h('div', { class: 'pw-bcard' });
       card.appendChild(h('div', { class: 'pw-bcard-label' }, b.label));
@@ -229,21 +229,21 @@
     return row;
   }
 
-  // ââ Ð¡ÐµÑÐºÐ° Ð¼ÐµÑÑÐ¸Ðº ÐºÐ°Ð½Ð°Ð»Ð° ââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // \u2500\u2500 \u0421\u0435\u0442\u043a\u0430 \u043c\u0435\u0442\u0440\u0438\u043a \u043a\u0430\u043d\u0430\u043b\u0430 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   function buildMetricsGrid(preview) {
     if (!preview) return null;
 
     var ageMonths = Number(preview.age_months || 0);
     var ageText   = ageMonths >= 12
-      ? Math.floor(ageMonths / 12) + ' Ð³. ' + (ageMonths % 12 ? (ageMonths % 12) + ' Ð¼ÐµÑ.' : '')
-      : ageMonths + ' Ð¼ÐµÑ.';
+      ? Math.floor(ageMonths / 12) + ' \u0433. ' + (ageMonths % 12 ? (ageMonths % 12) + ' \u043c\u0435\u0441.' : '')
+      : ageMonths + ' \u043c\u0435\u0441.';
 
     var vpm    = Number(preview.videos_per_month || 0);
     var er     = Number(preview.avg_er || 0);
     var subs   = Number(preview.subscriber_count || 0);
     var topics = (preview.topic_categories && preview.topic_categories.length)
       ? preview.topic_categories.join(', ').replace(/\/m\/\w+|\/\w+\/|_/g, ' ').trim()
-      : (preview.country || 'â');
+      : (preview.country || '\u2014');
 
     var erWarn  = er < 1 && subs > 10000;
     var vpmWarn = vpm > 20;
@@ -257,21 +257,21 @@
       return item;
     }
 
-    grid.appendChild(metricItem('ÐÐ¾Ð·ÑÐ°ÑÑ ÐºÐ°Ð½Ð°Ð»Ð°',       ageText,                                   false));
-    grid.appendChild(metricItem('ÐÑÐ±Ð»Ð¸ÐºÐ°ÑÐ¸Ð¹ Ð² Ð¼ÐµÑÑÑ',   vpm.toFixed(1) + ' Ð²Ð¸Ð´ÐµÐ¾ ' + (vpmWarn ? 'â ' : 'â'), vpmWarn));
-    grid.appendChild(metricItem('Ð¡ÑÐµÐ´Ð½Ð¸Ð¹ ÐP ',           er.toFixed(2) + '% ' + (erWarn ? 'â ' : 'â'),         erWarn));
-    grid.appendChild(metricItem('ÐÐ¾Ð´Ð¿Ð¸ÑÑÐ¸ÐºÐ¾Ð²',          subs >= 1000 ? (subs / 1000).toFixed(1) + 'K' : String(subs), false));
+    grid.appendChild(metricItem('\u0412\u043e\u0437\u0440\u0430\u0441\u0442 \u043a\u0430\u043d\u0430\u043b\u0430',       ageText,                                   false));
+    grid.appendChild(metricItem('\u041f\u0443\u0431\u043b\u0438\u043a\u0430\u0446\u0438\u0439 \u0432 \u043c\u0435\u0441\u044f\u0446',   vpm.toFixed(1) + ' \u0432\u0438\u0434\u0435\u043e ' + (vpmWarn ? '\u26a0' : '\u2713'), vpmWarn));
+    grid.appendChild(metricItem('\u0421\u0440\u0435\u0434\u043d\u0438\u0439 ER',           er.toFixed(2) + '% ' + (erWarn ? '\u26a0' : '\u2713'),        erWarn));
+    grid.appendChild(metricItem('\u041f\u043e\u0434\u043f\u0438\u0441\u0447\u0438\u043a\u043e\u0432',          subs >= 1000 ? (subs / 1000).toFixed(1) + 'K' : String(subs), false));
 
     return grid;
   }
 
-  // ââ Preview-ÐºÐ°ÑÑÐ¾ÑÐºÐ° (Ð½Ðµ Ð¾Ð¿Ð»Ð°ÑÐµÐ½Ð¾) âââââââââââââââââââââââââââââââââââââââ
+  // \u2500\u2500 Preview-\u043a\u0430\u0440\u0442\u043e\u0447\u043a\u0430 (\u043d\u0435 \u043e\u043f\u043b\u0430\u0447\u0435\u043d\u043e) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   function buildPreviewCard(report, store) {
     var card = h('div', { class: 'pw-card' });
 
     var hdr = h('div', { class: 'pw-card-header' });
-    hdr.appendChild(h('div', { class: 'pw-card-title' }, 'ÐÐ¾Ð»Ð½ÑÐ¹ Ð¾ÑÑÑÑ Ñ ÑÐµÐºÐ¾Ð¼ÐµÐ½Ð´Ð°ÑÐ¸ÑÐ¼Ð¸'));
-    hdr.innerHTML += '<div style="font-size:12px;color:#aaa">Ð¡ÑÐ¾Ð¸Ð¼Ð¾ÑÑÑ: <b style="color:#E8192C">$2.00</b></div>';
+    hdr.appendChild(h('div', { class: 'pw-card-title' }, '\u041f\u043e\u043b\u043d\u044b\u0439 \u043e\u0442\u0447\u0451\u0442 \u0441 \u0440\u0435\u043a\u043e\u043c\u0435\u043d\u0434\u0430\u0446\u0438\u044f\u043c\u0438'));
+    hdr.innerHTML += '<div style="font-size:12px;color:#aaa">\u0421\u0442\u043e\u0438\u043c\u043e\u0441\u0442\u044c: <b style="color:#E8192C">$2.00</b></div>';
     card.appendChild(hdr);
 
     var body = h('div', { class: 'pw-card-body' });
@@ -281,14 +281,14 @@
     var grid = buildMetricsGrid(preview);
     if (grid) body.appendChild(grid);
 
-    // Preview text (blurred) â Ð¿Ð¾ÐºÐ°Ð·ÑÐ²Ð°ÐµÐ¼ Ð´ÐµÑÐ°Ð»Ð¸ Ð±Ð»Ð¾ÐºÐ¾Ð²
+    // Preview text (blurred) \u2014 \u043f\u043e\u043a\u0430\u0437\u044b\u0432\u0430\u0435\u043c \u0434\u0435\u0442\u0430\u043b\u0438 \u0431\u043b\u043e\u043a\u043e\u0432
     var previewText = [
       (report.admission      && report.admission.details),
       (report.demonetization && report.demonetization.details),
       (report.copyright      && report.copyright.details),
     ].filter(Boolean).join(' ');
     if (!previewText) {
-      previewText = 'ÐÐµÑÐ°Ð»ÑÐ½ÑÐ¹ Ð°Ð½Ð°Ð»Ð¸Ð· Ð´Ð¾Ð¿ÑÑÐºÐ° Ðº Ð¼Ð¾Ð½ÐµÑÐ¸Ð·Ð°ÑÐ¸Ð¸, ÑÐ¸ÑÐºÐ¾Ð² Ð´ÐµÐ¼Ð¾Ð½ÐµÑÐ¸Ð·Ð°ÑÐ¸Ð¸ Ð¸ Ð°Ð²ÑÐ¾ÑÑÐºÐ¸Ñ Ð¿ÑÐ°Ð². Ð¡Ð¸Ð³Ð½Ð°Ð»Ñ, ÐºÑÐ¸ÑÐµÑÐ¸Ð¸ Ð¸ Ð¿Ð¾ÑÐ°Ð³Ð¾Ð²ÑÐµ ÑÐµÐºÐ¾Ð¼ÐµÐ½Ð´Ð°ÑÐ¸Ð¸ Ð°Ð²ÑÐ¾ÑÑ ÐºÐ°Ð½Ð°Ð»Ð°...';
+      previewText = '\u0414\u0435\u0442\u0430\u043b\u044c\u043d\u044b\u0439 \u0430\u043d\u0430\u043b\u0438\u0437 \u0434\u043e\u043f\u0443\u0441\u043a\u0430 \u043a \u043c\u043e\u043d\u0435\u0442\u0438\u0437\u0430\u0446\u0438\u0438, \u0440\u0438\u0441\u043a\u043e\u0432 \u0434\u0435\u043c\u043e\u043d\u0435\u0442\u0438\u0437\u0430\u0446\u0438\u0438 \u0438 \u0430\u0432\u0442\u043e\u0440\u0441\u043a\u0438\u0445 \u043f\u0440\u0430\u0432. \u0421\u0438\u0433\u043d\u0430\u043b\u044b, \u043a\u0440\u0438\u0442\u0435\u0440\u0438\u0438 \u0438 \u043f\u043e\u0448\u0430\u0433\u043e\u0432\u044b\u0435 \u0440\u0435\u043a\u043e\u043c\u0435\u043d\u0434\u0430\u0446\u0438\u0438 \u0430\u0432\u0442\u043e\u0440\u0443 \u043a\u0430\u043d\u0430\u043b\u0430...';
     }
 
     var wrap    = h('div', { class: 'pw-blur-wrap' });
@@ -296,15 +296,15 @@
     wrap.appendChild(content);
 
     var gate     = h('div', { class: 'pw-blur-gate' });
-    var gateText = h('div', { class: 'pw-blur-gate-text' }, 'ÐÐµÑÐ°Ð»ÑÐ½ÑÐ¹ ÑÐ°Ð·Ð±Ð¾Ñ Ð¸ ÑÐµÐºÐ¾Ð¼ÐµÐ½Ð´Ð°ÑÐ¸Ð¸ ÑÐºÑÑÑÑ');
+    var gateText = h('div', { class: 'pw-blur-gate-text' }, '\u0414\u0435\u0442\u0430\u043b\u044c\u043d\u044b\u0439 \u0440\u0430\u0437\u0431\u043e\u0440 \u0438 \u0440\u0435\u043a\u043e\u043c\u0435\u043d\u0434\u0430\u0446\u0438\u0438 \u0441\u043a\u0440\u044b\u0442\u044b');
 
     var unlockInfo = (report.unlock_info) || (store && store.unlockInfo) || {};
     var balance    = Number(unlockInfo.balance || 0);
-    var btnText    = 'ÐÑÐºÑÑÑÑ Ð¿Ð¾Ð»Ð½ÑÐ¹ Ð¾ÑÑÑÑ â $2.00';
+    var btnText    = '\u041e\u0442\u043a\u0440\u044b\u0442\u044c \u043f\u043e\u043b\u043d\u044b\u0439 \u043e\u0442\u0447\u0451\u0442 \u2014 $2.00';
     if (balance > 0) {
-      btnText = 'ÐÑÐºÑÑÑÑ Ð¿Ð¾Ð»Ð½ÑÐ¹ Ð¾ÑÑÑÑ â $2.00 (Ð±Ð°Ð»Ð°Ð½Ñ: $' + balance.toFixed(2) + ')';
+      btnText = '\u041e\u0442\u043a\u0440\u044b\u0442\u044c \u043f\u043e\u043b\u043d\u044b\u0439 \u043e\u0442\u0447\u0451\u0442 \u2014 $2.00 (\u0431\u0430\u043b\u0430\u043d\u0441: $' + balance.toFixed(2) + ')';
     } else if (unlockInfo.credit_available) {
-      btnText = 'ÐÐ¾Ð»ÑÑÐ¸ÑÑ Ð¾ÑÑÑÑ (Ð±ÐµÑÐ¿Ð»Ð°ÑÐ½Ð¾)';
+      btnText = '\u041f\u043e\u043b\u0443\u0447\u0438\u0442\u044c \u043e\u0442\u0447\u0451\u0442 (\u0431\u0435\u0441\u043f\u043b\u0430\u0442\u043d\u043e)';
     }
 
     var errMsg = h('div', { class: 'pw-unlock-error', style: 'display:none' });
@@ -312,7 +312,7 @@
 
     btn.addEventListener('click', function () {
       btn.disabled = true;
-      btn.textContent = 'ÐÐ¿Ð»Ð°ÑÐ°...';
+      btn.textContent = '\u041e\u043f\u043b\u0430\u0442\u0430...';
       errMsg.style.display = 'none';
       var st = getStore();
       if (st && typeof st.unlockReport === 'function') {
@@ -323,7 +323,7 @@
         }).catch(function (err) {
           btn.disabled = false;
           btn.textContent = btnText;
-          var msg = (err && err.message) ? err.message : 'ÐÑÐ¸Ð±ÐºÐ° Ð¿ÑÐ¸ Ð¾Ð¿Ð»Ð°ÑÐµ. ÐÐ¾Ð¿ÑÐ¾Ð±ÑÐ¹ÑÐµ ÐµÑÑ ÑÐ°Ð·.';
+          var msg = (err && err.message) ? err.message : '\u041e\u0448\u0438\u0431\u043a\u0430 \u043f\u0440\u0438 \u043e\u043f\u043b\u0430\u0442\u0435. \u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u0435\u0449\u0451 \u0440\u0430\u0437.';
           errMsg.textContent = msg;
           errMsg.style.display = 'block';
         });
@@ -338,12 +338,12 @@
     gate.appendChild(errMsg);
     wrap.appendChild(gate);
     body.appendChild(wrap);
-    body.appendChild(h('div', { style: 'font-size:11px;color:#ccc;text-align:center' }, 'ÐÐµÑÐ°Ð»ÑÐ½ÑÐ¹ ÑÐ°Ð·Ð±Ð¾Ñ ÐºÐ°Ð¶Ð´Ð¾Ð³Ð¾ ÑÐ¸Ð³Ð½Ð°Ð»Ð° Â· ÐÐ¾Ð½ÐºÑÐµÑÐ½ÑÐµ ÑÐµÐºÐ¾Ð¼ÐµÐ½Ð´Ð°ÑÐ¸Ð¸ Ð°Ð²ÑÐ¾ÑÑ'));
+    body.appendChild(h('div', { style: 'font-size:11px;color:#ccc;text-align:center' }, '\u0414\u0435\u0442\u0430\u043b\u044c\u043d\u044b\u0439 \u0440\u0430\u0437\u0431\u043e\u0440 \u043a\u0430\u0436\u0434\u043e\u0433\u043e \u0441\u0438\u0433\u043d\u0430\u043b\u0430 \u00b7 \u041a\u043e\u043d\u043a\u0440\u0435\u0442\u043d\u044b\u0435 \u0440\u0435\u043a\u043e\u043c\u0435\u043d\u0434\u0430\u0446\u0438\u0438 \u0430\u0432\u0442\u043e\u0440\u0443'));
     card.appendChild(body);
     return card;
   }
 
-  // ââ Ð¡ÑÑÐ¾ÐºÐ° ÐºÑÐ¸ÑÐµÑÐ¸Ñ (ÐÐ»Ð¾Ðº 1) âââââââââââââââââââââââââââââââââââââââââââââ
+  // \u2500\u2500 \u0421\u0442\u0440\u043e\u043a\u0430 \u043a\u0440\u0438\u0442\u0435\u0440\u0438\u044f (\u0411\u043b\u043e\u043a 1) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   function buildCriteriaRow(c) {
     var status  = c.status || 'ok';
     var iconMap = { ok: ICONS.check, fail: ICONS.x, warn: ICONS.warn };
@@ -357,14 +357,14 @@
     return row;
   }
 
-  // ââ ÐÐ»Ð¾Ðº reused content (Ð²ÑÑÐ¾ÐºÐ¸Ð¹ ÑÑÐ¾Ð²ÐµÐ½Ñ) ââââââââââââââââââââââââââââââââ
+  // \u2500\u2500 \u0411\u043b\u043e\u043a reused content (\u0432\u044b\u0441\u043e\u043a\u0438\u0439 \u0443\u0440\u043e\u0432\u0435\u043d\u044b) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   function buildReusedBox(signals) {
     var box = h('div', { class: 'pw-reused-box' });
     var highCount = signals.filter(function (s) { return s.level === 'high'; }).length;
     var title = h('div', { class: 'pw-reused-title' });
-    title.innerHTML = ICONS.warn + ' Reused / Mass-produced ÐºÐ¾Ð½ÑÐµÐ½Ñ â ' + signals.length +
-      ' ÑÐ¸Ð³Ð½Ð°Ð»' + (signals.length === 1 ? '' : signals.length < 5 ? 'Ð°' : 'Ð¾Ð²') + ' ÑÑÐ¾Ð²Ð½Ñ ' +
-      (highCount >= 2 ? 'ÐÑÑÐ¾ÐºÐ¾Ð³Ð¾' : 'Ð¡ÑÐµÐ´Ð½ÐµÐ³Ð¾');
+    title.innerHTML = ICONS.warn + ' Reused / Mass-produced \u043a\u043e\u043d\u0442\u0435\u043d\u0442 \u2014 ' + signals.length +
+      ' \u0441\u0438\u0433\u043d\u0430\u043b' + (signals.length === 1 ? '' : signals.length < 5 ? '\u0430' : '\u043e\u0432') + ' \u0443\u0440\u043e\u0432\u043d\u044f ' +
+      (highCount >= 2 ? '\u0412\u044b\u0441\u043e\u043a\u043e\u0433\u043e' : '\u0421\u0440\u0435\u0434\u043d\u0435\u0433\u043e');
     box.appendChild(title);
     signals.forEach(function (sig) {
       var row  = h('div', { class: 'pw-signal-row' });
@@ -382,7 +382,7 @@
     return box;
   }
 
-  // ââ Ð¡ÑÑÐ¾ÐºÐ° ÑÐ¸ÑÐºÐ° (ÐÐ»Ð¾ÐºÐ¸ 2/3) âââââââââââââââââââââââââââââââââââââââââââââ
+  // \u2500\u2500 \u0421\u0442\u0440\u043e\u043a\u0430 \u0440\u0438\u0441\u043a\u0430 (\u0411\u043b\u043e\u043a\u0438 2/3) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   function buildRiskRow(sig) {
     var row  = h('div', { class: 'pw-risk-row' });
     var dot  = h('div', { class: dotCls(sig.level) });
@@ -396,11 +396,11 @@
     return row;
   }
 
-  // ââ Ð ÐµÐºÐ¾Ð¼ÐµÐ½Ð´Ð°ÑÐ¸Ð¸ Ð´Ð»Ñ Ð°Ð²ÑÐ¾ÑÐ° âââââââââââââââââââââââââââââââââââââââââââââââ
+  // \u2500\u2500 \u0420\u0435\u043a\u043e\u043c\u0435\u043d\u0434\u0430\u0446\u0438\u0438 \u0434\u043b\u044f \u0430\u0432\u0442\u043e\u0440\u0430 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   function buildRecommendations(recs) {
     if (!Array.isArray(recs) || !recs.length) return null;
     var section = h('div', { class: 'pw-recs-section' });
-    section.appendChild(h('div', { class: 'pw-recs-title' }, 'Ð ÐµÐºÐ¾Ð¼ÐµÐ½Ð´Ð°ÑÐ¸Ð¸ Ð°Ð²ÑÐ¾ÑÑ ÐºÐ°Ð½Ð°Ð»Ð°'));
+    section.appendChild(h('div', { class: 'pw-recs-title' }, '\u0420\u0435\u043a\u043e\u043c\u0435\u043d\u0434\u0430\u0446\u0438\u0438 \u0430\u0432\u0442\u043e\u0440\u0443 \u043a\u0430\u043d\u0430\u043b\u0430'));
     recs.forEach(function (rec, i) {
       var item = h('div', { class: 'pw-rec-item' });
       item.appendChild(h('div', { class: 'pw-rec-num' }, String(i + 1)));
@@ -410,41 +410,41 @@
     return section;
   }
 
-  // ââ ÐÐ±ÑÐµÐ´Ð¸Ð½ÐµÐ½Ð¸Ðµ ÑÐ¸Ð³Ð½Ð°Ð»Ð¾Ð² ÐÐ»Ð¾ÐºÐ° 2 âââââââââââââââââââââââââââââââââââââââââ
-  // PHP-ÑÐ¸Ð³Ð½Ð°Ð»Ñ (type, level, title, detail) + AI-ÑÐ¸Ð³Ð½Ð°Ð»Ñ (level, title, description, recommendation)
+  // \u2500\u2500 \u041e\u0431\u044a\u0435\u0434\u0438\u043d\u0435\u043d\u0438\u0435 \u0441\u0438\u0433\u043d\u0430\u043b\u043e\u0432 \u0411\u043b\u043e\u043a 2 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // PHP-\u0441\u0438\u0433\u043d\u0430\u043b\u044b (type, level, title, detail) + AI-\u0441\u0438\u0433\u043d\u0430\u043b\u044b (level, title, description, recommendation)
   function mergeB2Signals(full) {
     var phpSigs = (full && Array.isArray(full.php_signals)   ? full.php_signals   : []);
     var aiSigs  = (full && Array.isArray(full.block2_signals) ? full.block2_signals : []);
-    // ÐÐ¾ÑÐ¼Ð°Ð»Ð¸Ð·ÑÐµÐ¼ php_signals: Ð´Ð¾Ð±Ð°Ð²Ð»ÑÐµÐ¼ Ð¿Ð¾Ð»Ðµ description (ÑÐ¸Ð½Ð¾Ð½Ð¸Ð¼ detail)
+    // \u041d\u043e\u0440\u043c\u0430\u043b\u0438\u0437\u0443\u0435\u043c php_signals: \u0434\u043e\u0431\u0430\u0432\u043b\u044f\u0435\u043c \u043f\u043e\u043b\u0435 description (\u0441\u0438\u043d\u043e\u043d\u0438\u043c detail)
     var phpNorm = phpSigs.map(function (s) {
       return { level: s.level || 'medium', title: s.title || '', description: s.detail || '', recommendation: s.recommendation || null };
     });
     return phpNorm.concat(aiSigs);
   }
 
-  // ââ ÐÐ¾Ð»Ð½ÑÐ¹ Ð¾ÑÑÑÑ (Ð¾Ð¿Ð»Ð°ÑÐµÐ½) âââââââââââââââââââââââââââââââââââââââââââââââ
+  // \u2500\u2500 \u041f\u043e\u043b\u043d\u044b\u0439 \u043e\u0442\u0447\u0451\u0442 (\u043e\u043f\u043b\u0430\u0447\u0435\u043d) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   function buildFullReport(report, full) {
     var wrap = h('div', { class: 'pw-card' });
 
-    // ââ ÐÐ¾Ð»ÑÑÐ°ÐµÐ¼ Ð´Ð°Ð½Ð½ÑÐµ Ð¿Ð¾ ÐºÐ°Ð¶Ð´Ð¾Ð¼Ñ Ð±Ð»Ð¾ÐºÑ ââ
+    // \u2500\u2500 \u041f\u043e\u043b\u0443\u0447\u0430\u0435\u043c \u0434\u0430\u043d\u043d\u044b\u0435 \u043f\u043e \u043a\u0430\u0436\u0434\u043e\u043c\u0443 \u0431\u043b\u043e\u043a\u0443 \u2500\u2500
     var criteria = (full && Array.isArray(full.block1_criteria) ? full.block1_criteria : null);
     var b2Sigs   = mergeB2Signals(full);
     var b3Sigs   = (full && Array.isArray(full.block3_signals) ? full.block3_signals : null);
     var recs     = (full && Array.isArray(full.recommendations_for_user) ? full.recommendations_for_user : null);
     var summaryMod = (full && full.summary_for_moderator) || report.summary || null;
 
-    // ââ Ð Ð¸ÑÐºÐ¸ Ð´Ð»Ñ Ð·Ð°Ð³Ð¾Ð»Ð¾Ð²ÐºÐ¾Ð² Ð²ÐºÐ»Ð°Ð´Ð¾Ðº ââ
+    // \u2500\u2500 \u0420\u0438\u0441\u043a\u0438 \u0434\u043b\u044f \u0437\u0430\u0433\u043e\u043b\u043e\u0432\u043a\u043e\u0432 \u0432\u043a\u043b\u0430\u0434\u043e\u043aP\u2500\u2500
     var b1Risk = (report.admission      && report.admission.risk)      || 'ok';
     var b2Risk = (report.demonetization && report.demonetization.risk) || 'low';
     var b3Risk = (report.copyright      && report.copyright.risk)      || 'low';
 
     var tabDefs = [
-      { label: 'ÐÐ»Ð¾Ðº 1 Â· ÐÐ¾Ð¿ÑÑÐº',        risk: b1Risk, panelTitle: 'ÐÐ±ÑÐ·Ð°ÑÐµÐ»ÑÐ½ÑÐµ ÐºÑÐ¸ÑÐµÑÐ¸Ð¸',      type: 'criteria',  data: criteria },
-      { label: 'ÐÐ»Ð¾Ðº 2 Â· ÐÐµÐ¼Ð¾Ð½ÐµÑÐ¸Ð·Ð°ÑÐ¸Ñ', risk: b2Risk, panelTitle: 'Ð Ð¸ÑÐºÐ¸ Ð´ÐµÐ¼Ð¾Ð½ÐµÑÐ¸Ð·Ð°ÑÐ¸Ð¸',        type: 'signals2',  data: b2Sigs   },
-      { label: 'ÐÐ»Ð¾Ðº 3 Â· Ð¡ÑÑÐ°Ð¹ÐºÐ¸',       risk: b3Risk, panelTitle: 'Ð Ð¸ÑÐºÐ¸ Ð°Ð²ÑÐ¾ÑÑÐºÐ¸Ñ Ð¿ÑÐ°Ð²',       type: 'signals3',  data: b3Sigs   },
+      { label: '\u0411\u043b\u043e\u043a 1 \u00b7 \u0414\u043e\u043f\u0443\u0441\u043a',        risk: b1Risk, panelTitle: '\u041e\u0431\u044f\u0437\u0430\u0442\u0435\u043b\u044c\u043d\u044b\u0435 \u043a\u0440\u0438\u0442\u0435\u0440\u0438\u0438',      type: 'criteria',  data: criteria },
+      { label: '\u0411\u043b\u043e\u043a 2 \u00b7 \u0414\u0435\u043c\u043e\u043d\u0435\u0442\u0438\u0437\u0430\u0446\u0438\u044f', risk: b2Risk, panelTitle: '\u0420\u0438\u0441\u043a\u0438 \u0434\u0435\u043c\u043e\u043d\u0435\u0442\u0438\u0437\u0430\u0446\u0438\u0438',        type: 'signals2',  data: b2Sigs   },
+      { label: '\u0411\u043b\u043e\u043a 3 \u00b7 \u0421\u0442\u0440\u0430\u0439\u043a\u0438',       risk: b3Risk, panelTitle: '\u0420\u0438\u0441\u043a\u0438 \u0430\u0432\u0442\u043e\u0440\u0441\u043a\u0438\u0445 \u043f\u0440\u0430\u0432',       type: 'signals3',  data: b3Sigs   },
     ];
 
-    // ââ Tab row ââ
+    // \u2500\u2500 Tab row \u2500\u2500
     var tabRow = h('div', { class: 'pw-tab-row' });
     var panels = [];
 
@@ -459,18 +459,18 @@
     });
     wrap.appendChild(tabRow);
 
-    // ââ ÐÐ°Ð½ÐµÐ»Ð¸ ââ
+    // \u2500\u2500 \u041f\u0430\u043d\u0435\u043b\u0438 \u2500\u2500
     tabDefs.forEach(function (td, i) {
       var panel = h('div', { class: 'pw-tab-panel', style: i === 0 ? '' : 'display:none' });
 
-      // ÐÐ¾Ð´Ð·Ð°Ð³Ð¾Ð»Ð¾Ð²Ð¾Ðº Ñ Ð±ÐµÐ¹Ð´Ð¶ÐµÐ¼ ÑÐ¸ÑÐºÐ°
+      // \u041f\u043e\u0434\u0437\u0430\u0433\u043e\u043b\u043e\u0432\u043e\u043a \u0441 \u0431\u0435\u0439\u0434\u0436\u0435\u043c \u0440\u0438\u0441\u043a\u0430
       var phdr = h('div', { style: 'display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:6px' });
       phdr.appendChild(h('div', { style: 'font-size:13px;font-weight:500;color:#1a1a1a' }, td.panelTitle));
       phdr.innerHTML += badge(td.risk);
       panel.appendChild(phdr);
 
       if (td.type === 'criteria') {
-        // ÐÐ»Ð¾Ðº 1: ÑÐ¿Ð¸ÑÐ¾Ðº ÐºÑÐ¸ÑÐµÑÐ¸ÐµÐ²
+        // \u0411\u043b\u043e\u043a 1: \u0441\u043f\u0438\u0441\u043e\u043a \u043a\u0440\u0438\u0442\u0435\u0440\u0438\u0435\u0432
         if (criteria && criteria.length) {
           var crList = h('div', { class: 'pw-cr-list' });
           criteria.forEach(function (c) { crList.appendChild(buildCriteriaRow(c)); });
@@ -478,11 +478,11 @@
         } else if (report.admission && report.admission.details) {
           panel.appendChild(h('div', { style: 'font-size:12px;line-height:1.7;color:#555' }, report.admission.details));
         } else {
-          panel.appendChild(h('p', { style: 'font-size:12px;color:#aaa' }, 'ÐÐ°Ð½Ð½ÑÐµ Ð±Ð»Ð¾ÐºÐ° Ð½Ðµ Ð¾Ð±Ð½Ð°ÑÑÐ¶ÐµÐ½Ñ'));
+          panel.appendChild(h('p', { style: 'font-size:12px;color:#aaa' }, '\u0414\u0430\u043d\u043d\u044b\u0435 \u0431\u043b\u043e\u043a\u0430 \u043d\u0435 \u043e\u0431\u043d\u0430\u0440\u0443\u0436\u0435\u043d\u044b'));
         }
 
       } else if (td.type === 'signals2') {
-        // ÐÐ»Ð¾Ðº 2: Ð²ÑÑÐ¾ÐºÐ¸Ðµ ÑÐ¸Ð³Ð½Ð°Ð»Ñ Ð² reused-box, Ð¾ÑÑÐ°Ð»ÑÐ½ÑÐµ â Ð¾ÑÐ´ÐµÐ»ÑÐ½Ð¾
+        // \u0411\u043b\u043e\u043a 2: \u0432\u044b\u0441\u043e\u043a\u0438\u0435 \u0441\u0438\u0433\u043d\u0430\u043b\u044b \u0432 reused-box, \u043e\u0441\u0442\u0430\u043b\u044c\u043d\u044b\u0435 \u2014 \u043e\u0442\u0434\u0435\u043b\u044c\u043d\u043e
         if (b2Sigs.length) {
           var highSigs = b2Sigs.filter(function (s) { return s.level === 'high'; });
           var otherSigs = b2Sigs.filter(function (s) { return s.level !== 'high'; });
@@ -490,34 +490,34 @@
           if (highSigs.length >= 2) {
             panel.appendChild(buildReusedBox(highSigs));
           } else if (highSigs.length === 1) {
-            // ÐÐ´Ð¸Ð½ Ð²ÑÑÐ¾ÐºÐ¸Ð¹ â ÑÐ¾Ð¶Ðµ Ð¿Ð¾ÐºÐ°Ð·ÑÐ²Ð°ÐµÐ¼ Ð² reused-box
+            // \u041e\u0434\u0438\u043d \u0432\u044b\u0441\u043e\u043a\u0438\u0439 \u2014 \u0442\u043e\u0436\u0435 \u043f\u043e\u043a\u0430\u0437\u044b\u0432\u0430\u0435\u043c \u0432 reused-box
             panel.appendChild(buildReusedBox(highSigs));
           }
 
           if (otherSigs.length) {
-            var sectTitle = h('div', { class: 'pw-risk-section-title' }, 'ÐÐ¾Ð¿Ð¾Ð»Ð½Ð¸ÑÐµÐ»ÑÐ½ÑÐµ ÑÐ¸Ð³Ð½Ð°Ð»Ñ');
+            var sectTitle = h('div', { class: 'pw-risk-section-title' }, '\u0414\u043e\u043f\u043e\u043b\u043d\u0438\u0442\u0435\u043b\u044c\u043d\u044b\u0435 \u0441\u0438\u0433\u043d\u0430\u043b\u044b');
             panel.appendChild(sectTitle);
             otherSigs.forEach(function (sig) { panel.appendChild(buildRiskRow(sig)); });
           }
 
-          // ÐÑÐ»Ð¸ ÑÐ¾Ð»ÑÐºÐ¾ ÑÑÐµÐ´Ð½Ð¸Ðµ ÑÐ¸Ð³Ð½Ð°Ð»Ñ (Ð½ÐµÑ Ð²ÑÑÐ¾ÐºÐ¸Ñ)
+          // \u0415\u0441\u043b\u0438 \u0442\u043e\u043b\u044c\u043a\u043e \u0441\u0440\u0435\u0434\u043d\u0438\u0435 \u0441\u0438\u0433\u043d\u0430\u043b\u044b (\u043d\u0435\u0442 \u0432\u044b\u0441\u043e\u043a\u0438\u0445)
           if (!highSigs.length && !otherSigs.length) {
-            panel.appendChild(h('p', { style: 'font-size:12px;color:#aaa' }, 'Ð¡Ð¸Ð³Ð½Ð°Ð»Ñ Ð´ÐµÐ¼Ð¾Ð½ÐµÑÐ¸Ð·Ð°ÑÐ¸Ð¸ Ð½Ðµ Ð¾Ð±Ð½Ð°ÑÑÐ¶ÐµÐ½Ñ'));
+            panel.appendChild(h('p', { style: 'font-size:12px;color:#aaa' }, '\u0421\u0438\u0433\u043d\u0430\u043b\u044b \u0434\u0435\u043c\u043e\u043d\u0435\u0442\u0438\u0437\u0430\u0446\u0438\u0438 \u043d\u0435 \u043e\u0431\u043d\u0430\u0440\u0443\u0436\u0435\u043d\u044b'));
           }
         } else if (report.demonetization && report.demonetization.details) {
           panel.appendChild(h('div', { style: 'font-size:12px;line-height:1.7;color:#555' }, report.demonetization.details));
         } else {
-          panel.appendChild(h('p', { style: 'font-size:12px;color:#16a34a' }, 'ÐÐ½Ð°ÑÐ¸Ð¼ÑÑ ÑÐ¸Ð³Ð½Ð°Ð»Ð¾Ð² Ð´ÐµÐ¼Ð¾Ð½ÐµÑÐ¸Ð·Ð°ÑÐ¸Ðº Ð½Ðµ Ð¾Ð±Ð½Ð°ÑÑÐ¶ÐµÐ½Ð¾'));
+          panel.appendChild(h('p', { style: 'font-size:12px;color:#16a34a' }, '\u0417\u043d\u0430\u0447\u0438\u043c\u044b\u0445 \u0441\u0438\u0433\u043d\u0430\u043b\u043e\u0432 \u0434\u0435\u043c\u043e\u043d\u0435\u0442\u0438\u0437\u0430\u0446\u0438\u0438 \u043d\u0435 \u043e\u0431\u043d\u0430\u0440\u0443\u0436\u0435\u043d\u043e'));
         }
 
       } else if (td.type === 'signals3') {
-        // ÐÐ»Ð¾Ðº 3: ÑÐ¸ÑÐºÐ¸ ÑÑÑÐ°Ð¹ÐºÐ¾Ð²
+        // \u0411\u043b\u043e\u043a 3: \u0440\u0438\u0441\u043a\u0438 \u0441\u0442\u0440\u0430\u0439\u043a\u043e\u0432
         if (b3Sigs && b3Sigs.length) {
           b3Sigs.forEach(function (sig) { panel.appendChild(buildRiskRow(sig)); });
         } else if (report.copyright && report.copyright.details) {
           panel.appendChild(h('div', { style: 'font-size:12px;line-height:1.7;color:#555' }, report.copyright.details));
         } else {
-          panel.appendChild(h('p', { style: 'font-size:12px;color:#16a34a' }, 'ÐÐ½Ð°ÑÐ¸Ð¼ÑÑ ÑÐ¸ÑÐºÐ¾Ð² Ð°Ð²ÑÐ¾ÑÑÐºÐ¸Ñ Ð¿ÑÐ°Ð² Ð½Ðµ Ð¾Ð±Ð½Ð°ÑÑÐ¶ÐµÐ½Ð¾'));
+          panel.appendChild(h('p', { style: 'font-size:12px;color:#16a34a' }, '\u0417\u043d\u0430\u0447\u0438\u043c\u044b\u0445 \u0440\u0438\u0441\u043a\u043e\u0432 \u0430\u0432\u0442\u043e\u0440\u0441\u043a\u0438\u0445 \u043f\u0440\u0430\u0432 \u043d\u0435 \u043e\u0431\u043d\u0430\u0440\u0443\u0436\u0435\u043d\u043e'));
         }
       }
 
@@ -525,20 +525,20 @@
       wrap.appendChild(panel);
     });
 
-    // ââ ÐÑÐ¾Ð³ Ð´Ð»Ñ Ð¼Ð¾Ð´ÐµÑÐ°ÑÐ¾ÑÐ° ââ
+    // \u2500\u2500 \u0418\u0442\u043e\u0433 \u0434\u043b\u044f \u043c\u043e\u0434\u0435\u0440\u0430\u0442\u043e\u0440\u0430 \u2500\u2500
     if (summaryMod) {
       var note = h('div', { class: 'pw-flag-note' });
-      note.innerHTML = '<strong>ÐÑÐ¾Ð³ Ð´Ð»Ñ Ð¼Ð¾Ð´ÐµÑÐ°ÑÐ¾ÑÐ°:</strong> ' + summaryMod;
+      note.innerHTML = '<strong>\u0418\u0442\u043e\u0433 \u0434\u043b\u044f \u043c\u043e\u0434\u0435\u0440\u0430\u0442\u043e\u0440\u0430:</strong> ' + summaryMod;
       wrap.appendChild(note);
     }
 
-    // ââ Ð ÐµÐºÐ¾Ð¼ÐµÐ½Ð´Ð°ÑÐ¸Ð¸ Ð´Ð»Ñ Ð°Ð²ÑÐ¾ÑÐ° ââ
+    // \u2500\u2500 \u0420\u0435\u043a\u043e\u043c\u0435\u043d\u0434\u0430\u0446\u0438\u0438 \u0434\u043b\u044f \u0430\u0432\u0442\u043e\u0440\u0430 \u2500\u2500
     var recsEl = buildRecommendations(recs);
     if (recsEl) wrap.appendChild(recsEl);
 
-    // ââ ÐÐ½Ð¾Ð¿ÐºÐ° ââ
+    // \u2500\u2500 \u041a\u043d\u043e\u043f\u043a\u0430 \u2500\u2500
     var actRow = h('div', { class: 'pw-action-row' });
-    var btnNew = h('button', { class: 'pw-btn pw-btn-ghost' }, 'ÐÑÐ¾Ð²ÐµÑÐ¸ÑÑ Ð´ÑÑÐ³Ð¾Ð¹ ÐºÐ°Ð½Ð°Ð»');
+    var btnNew = h('button', { class: 'pw-btn pw-btn-ghost' }, '\u041f\u0440\u043e\u0432\u0435\u0440\u0438\u0442\u044c \u0434\u0440\u0443\u0433\u043e\u0439 \u043a\u0430\u043d\u0430\u043b');
     btnNew.addEventListener('click', function () {
       removeInject();
       var st = getStore();
@@ -550,7 +550,7 @@
     return wrap;
   }
 
-  // ââ ÐÐ»Ð°Ð²Ð½Ð°Ñ ÑÑÐ½ÐºÑÐ¸Ñ ÑÐµÐ½Ð´ÐµÑÐ° ââââââââââââââââââââââââââââââââââââââââââââââ
+  // \u2500\u2500 \u0413\u043b\u0430\u0432\u043d\u0430\u044f \u0444\u0443\u043d\u043a\u0446\u0438\u044f \u0440\u0435\u043d\u0434\u0435\u0440\u0430 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   function removeInject() {
     var el = document.getElementById('pw-audit-inject');
     if (el) el.remove();
@@ -560,7 +560,22 @@
     if (ub) ub.style.display = '';
   }
 
-  function renderReport(store) {
+  // \u2500\u2500 \u041a\u0435\u0448 \u0438 \u0437\u0430\u0433\u0440\u0443\u0437\u043a\u0430 \u043f\u043e\u043b\u043d\u044b\u0445 \u0434\u0430\u043d\u043d\u044b\u0445 \u0430\u0443\u0434\u0438\u0442\u0430 \u0438\u0437 REST API \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  var _pwApiCache = {};
+
+  function fetchAuditFull(auditId, cb) {
+    if (_pwApiCache[auditId]) { cb(_pwApiCache[auditId]); return; }
+    var nonce = (window.paywayAuditCfg && window.paywayAuditCfg.nonce) || '';
+    fetch('/wp-json/payway/v1/audit/' + auditId + '/status', {
+      credentials: 'same-origin',
+      headers: { 'X-WP-Nonce': nonce }
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (d) { _pwApiCache[auditId] = d; cb(d); })
+    .catch(function () { cb({}); });
+  }
+
+  function renderReport(store, _apiData) {
     var report = store.report;
     if (!report) return;
 
@@ -578,27 +593,37 @@
 
     inject.innerHTML = '';
 
-    // ÐÐ¾Ð³Ð°ÑÑÐµ Ð´Ð°Ð½Ð½ÑÐµ: store.full ÑÐ¾Ð´ÐµÑÐ¶Ð¸Ñ criteria/signals/recs (ÑÐ¾Ð»ÑÐºÐ¾ Ð´Ð»Ñ Ð¾Ð¿Ð»Ð°ÑÐµÐ½Ð½ÑÑ)
-    var full    = store.full    || store.reportFull || null;
-    var preview = store.preview || null;
+    // \u0411\u043e\u0433\u0430\u0442\u044b\u0435 \u0434\u0430\u043d\u043d\u044b\u0435: \u0441\u043d\u0430\u0447\u0430\u043b\u0430 \u0438\u0437 apiData (\u043f\u0440\u044f\u043c\u043e\u0439 fetch), \u043f\u043e\u0442\u043e\u043c \u0438\u0437 store
+    var full    = (_apiData && _apiData.full)    || store.full    || store.reportFull || null;
+    var preview = (_apiData && _apiData.preview) || store.preview || null;
 
-    // 1. ÐÐµÑÐ´Ð¸ÐºÑ
+    // 1. \u0412\u0435\u0440\u0434\u0438\u043a\u0442
     inject.appendChild(buildVerdictBanner(report));
 
-    // 2. Ð¢ÑÐ¸ Ð±Ð»Ð¾ÐºÐ°-ÐºÐ°ÑÑÐ¾ÑÐºÐ¸
+    // 2. \u0422\u0440\u0438 \u0431\u043b\u043e\u043a\u0430-\u043a\u0430\u0440\u0442\u043e\u0447\u043a\u0438
     inject.appendChild(buildBlocksRow(report));
 
-    // 3. ÐÑÐ½Ð¾Ð²Ð½Ð¾Ð¹ ÐºÐ¾Ð½ÑÐµÐ½Ñ
+    // 3. \u041e\u0441\u043d\u043e\u0432\u043d\u043e\u0439 \u043a\u043e\u043d\u0442\u0435\u043d\u0442
     var isPaid = store.isPaid || (report && report.is_paid);
-    inject.appendChild(isPaid ? buildFullReport(report, full) : buildPreviewCard(report, store));
 
-    // Ð¡ÐºÑÑÐ²Ð°ÐµÐ¼ Ð¾ÑÐ¸Ð³Ð¸Ð½Ð°Ð»ÑÐ½ÑÐµ Vue-ÑÐµÐºÑÐ¸Ð¸
+    var hasApiData = _apiData && _apiData.full;
+    if (isPaid && !full && !hasApiData && store.auditId) {
+      // \u0414\u0430\u043d\u043d\u044b\u0435 \u0435\u0449\u0451 \u043d\u0435 \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043d\u044b \u2014 fetches API \u0438 \u043f\u0435\u0440\u0435\u0440\u0435\u043d\u0434\u0435\u0440\u0438\u0442
+      inject.appendChild(buildPreviewCard(report, store));
+      fetchAuditFull(store.auditId, function (apiData) {
+        renderReport(store, apiData || {});
+      });
+    } else {
+      inject.appendChild(isPaid ? buildFullReport(report, full) : buildPreviewCard(report, store));
+    }
+
+    // \u0421\u043a\u0440\u044b\u0432\u0430\u0435\u043c \u043e\u0440\u0438\u0433\u0438\u043d\u0430\u043b\u044c\u043d\u044b\u0435 Vue-\u0441\u0435\u043a\u0446\u0438\u0438
     auditResult.style.display = 'none';
     var unlockDiv = document.querySelector('.audit-unlock-button');
     if (unlockDiv) unlockDiv.style.display = 'none';
   }
 
-  // ââ Ð¦Ð¸ÐºÐ» Ð¾Ð¿ÑÐ¾ÑÐ° store ââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // \u2500\u2500 \u0426\u0438\u043a\u043b \u043e\u043f\u0440\u043e\u0441\u0430 store \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   function tryRender(attempts) {
     if (attempts <= 0) return;
     var store = getStore();
@@ -634,7 +659,7 @@
     }, 800);
   }
 
-  // ââ Ð¡ÑÐ°ÑÑ ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // \u2500\u2500 \u0421\u0442\u0430\u0440\u0444 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () {
       setTimeout(function () { tryRender(30); }, 600);

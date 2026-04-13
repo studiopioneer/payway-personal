@@ -232,7 +232,7 @@ class PW_Audit_REST {
             return new WP_Error( 'alreadyUnlocked', 'Отчёт уже оплачен', [ 'status' => 400 ] );
         }
 
-        $balance = (float) get_user_meta( $user_id, 'payway_balance', true );
+        $balance = (float) get_user_meta( $user_id, 'payway_withdrawal_balance', true );
 
         // Ветка 3: баланс < 0
         if ( $balance < 0 ) {
@@ -247,12 +247,12 @@ class PW_Audit_REST {
             }
             // Транзакция
             $wpdb->query( 'START TRANSACTION' );
-            $fresh_balance = (float) $wpdb->get_var( "SELECT meta_value FROM {$wpdb->usermeta} WHERE user_id = {$user_id} AND meta_key = 'payway_balance' FOR UPDATE" );
+            $fresh_balance = (float) $wpdb->get_var( "SELECT meta_value FROM {$wpdb->usermeta} WHERE user_id = {$user_id} AND meta_key = 'payway_withdrawal_balance' FOR UPDATE" );
             if ( $fresh_balance != 0 ) {
                 $wpdb->query( 'ROLLBACK' );
                 return new WP_Error( 'balance_changed', 'Баланс изменился. Повторите попытку.', [ 'status' => 409 ] );
             }
-            $wpdb->update( $wpdb->usermeta, [ 'meta_value' => '-1.00' ], [ 'user_id' => $user_id, 'meta_key' => 'payway_balance' ], [ '%s' ], [ '%d', '%s' ] );
+            $wpdb->update( $wpdb->usermeta, [ 'meta_value' => '-1.00' ], [ 'user_id' => $user_id, 'meta_key' => 'payway_withdrawal_balance' ], [ '%s' ], [ '%d', '%s' ] );
             $wpdb->query( $wpdb->prepare( "UPDATE {$table} SET is_paid = 1, amount_charged = 1.00 WHERE id = %d AND user_id = %d", $audit_id, $user_id ) );
             $wpdb->query( 'COMMIT' );
 
@@ -268,13 +268,13 @@ class PW_Audit_REST {
 
         // Ветка 1: баланс > 0
         $wpdb->query( 'START TRANSACTION' );
-        $fresh_balance = (float) $wpdb->get_var( "SELECT meta_value FROM {$wpdb->usermeta} WHERE user_id = {$user_id} AND meta_key = 'payway_balance' FOR UPDATE" );
+        $fresh_balance = (float) $wpdb->get_var( "SELECT meta_value FROM {$wpdb->usermeta} WHERE user_id = {$user_id} AND meta_key = 'payway_withdrawal_balance' FOR UPDATE" );
         if ( $fresh_balance <= 0 ) {
             $wpdb->query( 'ROLLBACK' );
             return new WP_Error( 'insufficientBalance', 'Недостаточно средств', [ 'status' => 402 ] );
         }
         $new_balance = $fresh_balance - 1.00;
-        $wpdb->update( $wpdb->usermeta, [ 'meta_value' => number_format( $new_balance, 2, '.', '' ) ], [ 'user_id' => $user_id, 'meta_key' => 'payway_balance' ], [ '%s' ], [ '%d', '%s' ] );
+        $wpdb->update( $wpdb->usermeta, [ 'meta_value' => number_format( $new_balance, 2, '.', '' ) ], [ 'user_id' => $user_id, 'meta_key' => 'payway_withdrawal_balance' ], [ '%s' ], [ '%d', '%s' ] );
         $wpdb->query( $wpdb->prepare( "UPDATE {$table} SET is_paid = 1, amount_charged = 1.00 WHERE id = %d AND user_id = %d", $audit_id, $user_id ) );
         $wpdb->query( 'COMMIT' );
 
@@ -316,7 +316,7 @@ class PW_Audit_REST {
     public function normalize_report( $audit, int $user_id, bool $list_mode = false ) {
         $preview = json_decode( $audit->report_preview ?? '{}', true ) ?: [];
         $full    = json_decode( $audit->report_full   ?? '{}', true ) ?: [];
-        $balance = (float) get_user_meta( $user_id, 'payway_balance', true );
+        $balance = (float) get_user_meta( $user_id, 'payway_withdrawal_balance', true );
 
         // Базовые поля — всегда присутствуют
             //  report  Vue: {summary, admission, demonetization, copyright}

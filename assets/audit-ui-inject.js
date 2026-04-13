@@ -253,12 +253,14 @@
       if (st && typeof st.unlockReport === 'function') {
         var id = (report.id != null ? report.id : null) || (st.auditId != null ? st.auditId : null);
         st.unlockReport(id).then(function () {
-          var s = getStore();
-          if (s && s.report) renderReport(s);
-        }).catch(function () {
-          btn.disabled = false;
-          btn.textContent = btnText;
-        });
+            window.location.reload();
+          }).catch(function (err) {
+            btn.disabled = false;
+            btn.textContent = btnText;
+            var msg = (err && err.message) ? err.message : ' .  .';
+            var gate = document.querySelector('.pw-blur-gate');
+            if (gate) { var ep = document.createElement('p'); ep.style.cssText = 'color:#c0392b;font-size:13px;margin-top:8px;font-weight:600'; ep.textContent = msg; gate.appendChild(ep); }
+          });
       } else {
         btn.disabled = false;
         btn.textContent = btnText;

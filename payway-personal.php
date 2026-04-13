@@ -209,4 +209,12 @@ function payway_inject_audit_history_loader_v2() {
     </script>
     <?php
 }
+
+// -- Audit UI v3: direct script src inject (bypasses wp_enqueue handle) --
+add_action( 'wp_footer', function () {
+    if ( strpos( $_SERVER['REQUEST_URI'] ?? '', '/audit' ) === false ) return;
+    $url = plugin_dir_url( __FILE__ ) . 'assets/audit-ui-inject.js?ver=3.0';
+    echo '<script src="' . esc_url( $url ) . '"></script>' . "\n";
+}, 5 );
+
 add_action( 'wp_footer', 'payway_inject_audit_history_loader_v2' );

@@ -106,7 +106,7 @@ class PW_Audit_REST {
 
         // Итоговые значения
         if ( $ai_ok ) {
-            // PHP-сигналы могут повысить риск блока 2
+            // PHP-сигналђ могут повысить риск блока 2
             $final_block2_risk = $this->merge_risk( $php_block2_risk, $ai_result['block2_risk'] );
             $final_block3_risk = $ai_result['block3_risk'];
             $final_verdict     = $early_verdict ?? $ai_result['verdict'];
@@ -252,7 +252,7 @@ class PW_Audit_REST {
                 $wpdb->query( 'ROLLBACK' );
                 return new WP_Error( 'balance_changed', 'Баланс изменился. Повторите попытку.', [ 'status' => 409 ] );
             }
-     0      $wpdb->update( $wpdb->usermeta, [ 'meta_value' => '-1.00' ], [ 'user_id' => $user_id, 'meta_key' => 'payway_withdrawal_balance' ], [ '%s' ], [ '%d', '%s' ] );
+            $wpdb->update( $wpdb->usermeta, [ 'meta_value' => '-1.00' ], [ 'user_id' => $user_id, 'meta_key' => 'payway_withdrawal_balance' ], [ '%s' ], [ '%d', '%s' ] );
             $wpdb->query( $wpdb->prepare( "UPDATE {$table} SET is_paid = 1, amount_charged = 1.00 WHERE id = %d AND user_id = %d", $audit_id, $user_id ) );
             $wpdb->query( 'COMMIT' );
 
@@ -380,34 +380,14 @@ class PW_Audit_REST {
 
         // Полный отчёт — только если оплачен (или admin)
         if ( $audit->is_paid || current_user_can( 'manage_options' ) ) {
-            // channel_metrics содержит все новые поля из Sprint 1
-            $cm = $full['channel_metrics'] ?? [];
-
             $response['full'] = [
-                'block1_criteria'           => $full['block1_criteria']            ?? $preview['block1_criteria'] ?? [],
-                'block2_signals'            => $full['block2_signals']             ?? [],
-                'block3_signals'            => $full['block3_signals']             ?? [],
-                'php_signals'               => $full['php_signals']                ?? $preview['php_signals'] ?? [],
-                'summary_for_moderator'     => $full['summary_for_moderator']      ?? '',
-                'recommendations_for_user'  => $full['recommendations_for_user']   ?? [],
-                'channel_metrics'           => $cm,
-                // Новые поля Sprint 1 — из channel_metrics
-                'channel_title'             => $cm['channel_title']     ?? $cm['title']     ?? '',
-                'channel_handle'            => $cm['channel_handle']    ?? $cm['customUrl'] ?? '',
-                'channel_thumb'             => $cm['channel_thumb']     ?? '',
-                'channel_created_at'        => $cm['channel_created_at'] ?? $cm['publishedAt'] ?? '',
-                'channel_country'           => $cm['channel_country']   ?? $cm['country']   ?? '',
-                'topic_categories'          => $cm['topic_categories']  ?? $cm['topicCategories'] ?? [],
-                'retry_date'                => $cm['retry_date']         ?? null,
-                'retry_months_left'         => $cm['retry_months_left']  ?? null,
-                'videos_list'               => $cm['videos_list']        ?? [],
-                // Новые AI-поля Sprint 1
-                'priority_action'           => $full['priority_action']            ?? '',
-                'retry_context'             => $full['retry_context']              ?? '',
-                'checklist_moderator'       => $full['checklist_moderator']        ?? [],
-                'metric_explanations'       => $full['metric_explanations']        ?? [],
-                'content_allowed'           => $full['content_allowed']            ?? [],
-                'content_forbidden'         => $full['content_forbidden']          ?? [],
+                'block1_criteria'         => $full['block1_criteria']           ?? $preview['block1_criteria'] ?? [],
+                'block2_signals'          => $full['block2_signals']           ?? [],
+                'block3_signals'          => $full['block3_signals']            ?? [],
+                'php_signals'             => $full['php_signals']               ?? $preview['php_signals'] ?? [],
+                'summary_for_moderator'   => $full['summary_for_moderator']     ?? '',
+                'recommendations_for_user'=> $full['recommendations_for_user'] ?? [],
+                'channel_metrics'         => $full['channel_metrics']           ?? [],
             ];
         } else {
             $response['full'] = null;

@@ -11,44 +11,29 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy via SSH
-        uses: easingthemes/ssh-deploy@v4
+      - name: Deploy via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
-          REMOTE_USER: ${{ secrets.REMOTE_USER }}
-          REMOTE_PORT: ${{ secrets.REMOTE_PORT }}
-          SOURCE: "./"
-          TARGET: ${{ secrets.DEPLOY_PATH }}
-          EXCLUDE: >-
-            .git/,
-            .github/,
-            node_modules/,
-            src/,
-            temp/,
-            .env,
-            .gitignore,
-            package.json,
-            package-lock.json,
-            vite.config.js,
-            vite.svg,
-            *.md
-
-      - name: Post-deploy
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.REMOTE_HOST }}
-          username: ${{ secrets.REMOTE_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.REMOTE_PORT }}
-          script: |
-            cd ${{ secrets.DEPLOY_PATH }}
-            find . -type f -exec chmod 644 {} \;
-            find . -type d -exec chmod 755 {} \;
-            wp cache flush --path=${{ secrets.WP_PATH }} 2>/dev/null || true
-            echo "Deploy complete: $(date)"
+          server: ${{ secrets.REMOTE_HOST }}
+          username: ${{ secrets.FTP_USER }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./
+          server-dir: ${{ secrets.FTP_PATH }}
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            **/src/**
+            **/temp/**
+            .env
+            .gitignore
+            package.json
+            package-lock.json
+            vite.config.js
+            vite.svg
+            **/*.md

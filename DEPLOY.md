@@ -1,40 +1,44 @@
 # Деплой PayWay Personal — инструкция для Cowork
 
-## ВАЖНО: Как деплоить
-Деплой происходит АВТОМАТИЧЕСКИ через GitHub Actions при пуше в ветку main.
-НЕ нужно деплоить через терминал, FTP, SSH или любые другие ручные способы.
-НЕ ИСПОЛЬЗУЙ терминал для git команд.
+## ВАЖНО: Правила деплоя
 
-## Порядок деплоя
+Деплой выполняется ВРУЧНУЮ пользователем (Илья).
+Claude НЕ деплоит на сервер. Claude НЕ использует терминал, FTP, SSH, GitHub Actions или любые автоматические способы доставки файлов на сервер.
 
-### Шаг 1: Внеси изменения в файлы
-Редактируй PHP, Vue-компоненты, стили — что нужно.
+## Как это работает
 
-### Шаг 2: Если менял файлы в src/ — собери фронтенд
-npm run build
-Это обновит assets/. Включи обновлённую папку assets/ в коммит.
+### 1. Claude завершает спринт
 
-### Шаг 3: Запуши изменения через GitHub API
-Инструмент push_files из GitHub MCP-коннектора возвращает 403 для этого
-приватного репозитория — у коннектора нет прав записи.
+После окончания работы над очередным спринтом из ТЗ, Claude готовит **таблицу изменённых файлов** в следующем формате:
 
-Вместо него используй GitHub Contents API напрямую через браузер.
-Токен хранится в GitHub Secrets репозитория (GITHUB_TOKEN) и в переписке с Claude.
-Claude умеет выполнять этот запрос автоматически через browser tool.
+| № | Файл | Путь в GitHub | Путь на сервере |
+|---|------|---------------|-----------------|
+| 1 | `example.php` | `/includes/example.php` | `hikartveli.com/wp-content/plugins/payway-personal-7.0/includes/example.php` |
+| 2 | `style.css` | `/assets/css/style.css` | `hikartveli.com/wp-content/plugins/payway-personal-7.0/assets/css/style.css` |
 
-Алгоритм для Claude:
-1. Получи SHA текущего файла через GET /repos/studiopioneer/payway-personal/contents/PATH
-2. Закодируй новое содержимое в base64 (в sandbox: python3 -c "import base64; ...")
-3. Отправь PUT /repos/studiopioneer/payway-personal/contents/PATH с полями:
-   message, content (base64), sha, branch: main
+- **Путь в GitHub** — путь к файлу в репозитории `studiopioneer/payway-personal`
+- **Путь на сервере** — полный путь на тестовом сервере `hikartveli.com/wp-content/plugins/payway-personal-7.0/`
 
-### Шаг 4: Дождись автодеплоя
-После пуша GitHub Actions автоматически загрузит файлы на тестовый сервер.
-Статус: https://github.com/studiopioneer/payway-personal/actions
-Время деплоя: ~2 минуты.
+### 2. Илья скачивает файлы с GitHub
 
-## Примечание по MCP
-push_files из GitHub MCP → 403 Resource not accessible by integration.
-Причина: OAuth-коннектор Cowork не имеет scope repo для приватных репо.
-Редактировать токен коннектора в UI Cowork невозможно (только Connect/Disconnect).
-Рабочий обходной путь: браузерный fetch с PAT через browser tool.
+Заходит в репозиторий https://github.com/studiopioneer/payway-personal/, открывает каждый файл из таблицы и скачивает его (кнопка «Download raw file» или Raw).
+
+### 3. Илья загружает файлы на сервер
+
+Через панель управления сервером (авторизация в браузере) загружает скачанные файлы на `hikartveli.com/wp-content/plugins/payway-personal-7.0/` по указанным путям, заменяя старые версии.
+
+## Что НЕ нужно делать
+
+- НЕ использовать патчи или diff-файлы
+- НЕ использовать GitHub Actions для автодеплоя
+- НЕ использовать SSH/FTP из терминала
+- НЕ пытаться деплоить через MCP, API или браузерные инструменты
+- Просто скачать готовые файлы с GitHub и заменить на сервере вручную
+
+## Примечание для Claude
+
+При каждом завершении спринта ОБЯЗАТЕЛЬНО:
+1. Сверься с этим файлом (DEPLOY.md)
+2. Подготовь таблицу всех изменённых/добавленных файлов
+3. Укажи точные пути в GitHub и на сервере
+4. НЕ ищи альтернативные способы деплоя — процесс именно такой

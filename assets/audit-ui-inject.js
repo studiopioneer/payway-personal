@@ -1,5 +1,5 @@
 /**
- * PayWay Audit UI Injector v4.1-sprint2
+ * PayWay Audit UI Injector v4.2-sprint3
  * Читает данные из Pinia store и переестраивает DOM под прототип v2
  *
  * store.report  : { verdict, verdict_reason, summary, admission, demonetization, copyright }
@@ -155,6 +155,14 @@
       '.pw-stat-val.warn{color:#dc2626}',
       '.pw-stat-hint{font-size:11px;margin-top:3px;color:#aaa}',
       '.pw-stat-hint.warn{color:#dc2626}',
+      /* Sprint 3: criterion explanations */
+      '.pw-cr-explain{font-size:11px;color:#555;margin-top:5px;padding:5px 9px;background:#f9f9f9;border-radius:5px;border-left:2px solid #e8e8e8;line-height:1.5}',
+      /* Sprint 3: content rules (block 3) */
+      '.pw-content-rules{margin-top:12px;padding:12px 14px;background:#f9fafb;border-radius:8px;border:1px solid #f0f0f0}',
+      '.pw-rules-title{font-size:12px;font-weight:500;color:#1a1a1a;margin-bottom:8px}',
+      '.pw-rule-ok,.pw-rule-no{display:flex;gap:8px;font-size:12px;padding:3px 0}',
+      '.pw-rule-ok span{color:#16a34a;font-weight:600;flex-shrink:0}',
+      '.pw-rule-no span{color:#dc2626;font-weight:600;flex-shrink:0}',
     ].join('');
     document.head.appendChild(style);
   }
@@ -517,7 +525,27 @@
   }
  
   // —— Строка критерия (Блок 1) ——————————————————————————————————————————————————————————————
-  function buildCriteriaRow(c) {
+  // Sprint 3: explanations for block1 criteria
+  var CRITERION_EXPLANATIONS = {
+    age: {
+      fail: function (cm) { return 'Главная причина отказа. Подайте заявку повторно после ' + ((cm && cm.retry_date) || 'истечения 6 месяцев') + '.'; },
+      warn: function ()    { return 'Канал почти достиг требования. Продолжайте публиковать.'; }
+    },
+    longUploadsStatus: {
+      warn: function () { return 'Верификация открывается при 1000+ подписчиков. Подтвердите аккаунт через SMS в YouTube Studio → Настройки.'; }
+    },
+    madeForKids: {
+      fail: function () { return 'Детский контент не монетизируется через стандартный AdSense. Измените в YouTube Studio → Контент → Настройки → Аудитория.'; }
+    },
+    regularity: {
+      fail: function () { return 'Обнаружена пауза > 60 дней. YouTube снижает охват нерегулярных каналов.'; }
+    },
+    videoCount: {
+      fail: function (cm) { return 'Необходимо минимум 5 публичных видео. Сейчас: ' + ((cm && cm.video_count) || '?') + '.'; }
+    }
+  };
+ 
+  function buildCriteriaRow(c, channelMetrics) {
     var status  = c.status || 'ok';
     var iconMap = { ok: ICONS.check, fail: ICONS.x, warn: ICONS.warn };
     var row = h('div', { class: 'pw-cr-row' });
@@ -525,6 +553,15 @@
     var info = h('div');
     info.appendChild(h('div', { class: 'pw-cr-name' }, c.name || ''));
     if (c.detail) info.appendChild(h('div', { class: 'pw-cr-desc' }, c.detail));
+    // Sprint 3: add explanation for fail/warn criteria
+    if (status !== 'ok') {
+      var key = c.key || c.id || '';
+      var explEntry = CRITERION_EXPLANATIONS[key];
+      if (explEntry && typeof explEntry[status] === 'function') {
+        var explText = explEntry[status](channelMetrics || null);
+        if (explText) info.appendChild(h('div', { class: 'pw-cr-explain' }, explText));
+      }
+    }
     row.appendChild(dot);
     row.appendChild(info);
     return row;
@@ -577,7 +614,20 @@
     recs.forEach(function (rec, i) {
       var item = h('div', { class: 'pw-rec-item' });
       item.appendChild(h('div', { class: 'pw-rec-num' }, String(i + 1)));
-      item.appendChild(h('div', { class: 'pw-rec-text' }, rec));
+      // Sprint 1 changed format from string to {title, text, tag}
+      if (typeof rec === 'object' && rec !== null) {
+        var recWrap = h('div', { class: 'pw-rec-text' });
+        if (rec.title) {
+          recWrap.appendChild(h('div', { style: 'font-weight:600;margin-bottom:3px' }, rec.title));
+        }
+        recWrap.appendChild(h('div', {}, rec.text || rec.description || ''));
+        if (rec.tag) {
+          recWrap.appendChild(h('div', { style: 'font-size:10px;color:#aaa;margin-top:3px' }, rec.tag));
+        }
+        item.appendChild(recWrap);
+      } else {
+        item.appendChild(h('div', { class: 'pw-rec-text' }, rec));
+      }
       section.appendChild(item);
     });
     return section;
@@ -590,7 +640,7 @@
     var aiSigs  = (full && Array.isArray(full.block2_signals) ? full.block2_signals : []);
     // Нормализуем php_signals: добавляем поле description (синоним detail)
     var phpNorm = phpSigs.map(function (s) {
-      return { level: s.level || 'medium', title: s.title || '', description: s.detail || '', recommendation: s.recommendation || null };
+      return { type: s.type || '', level: s.level || 'medium', title: s.title || '', description: s.detail || s.description || '', recommendation: s.recommendation || null };
     });
     return phpNorm.concat(aiSigs);
   }
@@ -601,7 +651,15 @@
  
     // —— Получаем данные по каждому блоку ——
     var criteria = (full && Array.isArray(full.block1_criteria) ? full.block1_criteria : null);
-    var b2Sigs   = mergeB2Signals(full);
+    var channelMetrics = (full && full.channel_metrics) || {};
+    // Sprint 3: deduplicate block2 — filter AI signals that duplicate PHP signals
+    var phpSigTypes = (full && Array.isArray(full.php_signals) ? full.php_signals : []).map(function (s) { return s.type; }).filter(Boolean);
+    var rawB2 = mergeB2Signals(full);
+    var b2Sigs = rawB2.filter(function (s) {
+      // Keep PHP-origin signals; filter AI signals whose issue_type matches a PHP type
+      if (s.issue_type && phpSigTypes.indexOf(s.issue_type) !== -1) return false;
+      return true;
+    });
     var b3Sigs   = (full && Array.isArray(full.block3_signals) ? full.block3_signals : null);
     var recs     = (full && Array.isArray(full.recommendations_for_user) ? full.recommendations_for_user : null);
     var summaryMod = (full && full.summary_for_moderator) || report.summary || null;
@@ -646,7 +704,7 @@
         // Блок 1: список критериев
         if (criteria && criteria.length) {
           var crList = h('div', { class: 'pw-cr-list' });
-          criteria.forEach(function (c) { crList.appendChild(buildCriteriaRow(c)); });
+          criteria.forEach(function (c) { crList.appendChild(buildCriteriaRow(c, channelMetrics)); });
           panel.appendChild(crList);
         } else if (report.admission && report.admission.details) {
           panel.appendChild(h('div', { style: 'font-size:12px;line-height:1.7;color:#555' }, report.admission.details));
@@ -691,6 +749,26 @@
           panel.appendChild(h('div', { style: 'font-size:12px;line-height:1.7;color:#555' }, report.copyright.details));
         } else {
           panel.appendChild(h('p', { style: 'font-size:12px;color:#16a34a' }, 'Значимых рисков авторских прав не обнаружено'));
+        }
+        // Sprint 3: content allowed / forbidden rules
+        var contentAllowed   = (full && Array.isArray(full.content_allowed))   ? full.content_allowed   : [];
+        var contentForbidden = (full && Array.isArray(full.content_forbidden)) ? full.content_forbidden : [];
+        if (contentAllowed.length || contentForbidden.length) {
+          var rulesBox = h('div', { class: 'pw-content-rules' });
+          rulesBox.appendChild(h('div', { class: 'pw-rules-title' }, 'Для данного типа контента:'));
+          contentAllowed.forEach(function (item) {
+            var ruleEl = h('div', { class: 'pw-rule-ok' });
+            ruleEl.appendChild(h('span', {}, '✓'));
+            ruleEl.appendChild(h('span', {}, item));
+            rulesBox.appendChild(ruleEl);
+          });
+          contentForbidden.forEach(function (item) {
+            var ruleEl = h('div', { class: 'pw-rule-no' });
+            ruleEl.appendChild(h('span', {}, '✗'));
+            ruleEl.appendChild(h('span', {}, item));
+            rulesBox.appendChild(ruleEl);
+          });
+          panel.appendChild(rulesBox);
         }
       }
  

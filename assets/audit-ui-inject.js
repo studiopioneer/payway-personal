@@ -1,5 +1,5 @@
 /**
- * PayWay Audit UI Injector v4.2-sprint3
+ * PayWay Audit UI Injector v4.3-sprint4
  * Читает данные из Pinia store и переестраивает DOM под прототип v2
  *
  * store.report  : { verdict, verdict_reason, summary, admission, demonetization, copyright }
@@ -163,6 +163,21 @@
       '.pw-rule-ok,.pw-rule-no{display:flex;gap:8px;font-size:12px;padding:3px 0}',
       '.pw-rule-ok span{color:#16a34a;font-weight:600;flex-shrink:0}',
       '.pw-rule-no span{color:#dc2626;font-weight:600;flex-shrink:0}',
+      /* Sprint 4: video table */
+      '.pw-video-table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}',
+      '.pw-video-table th{font-size:10px;font-weight:600;color:#bbb;text-align:left;padding:0 6px 8px;border-bottom:1px solid #f0f0f0;text-transform:uppercase;letter-spacing:.04em}',
+      '.pw-video-table td{padding:8px 6px;border-bottom:1px solid #f7f7f7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle}',
+      '.pw-video-table tr:last-child td{border-bottom:none}',
+      '.pw-vr-err td{background:#fef2f2}',
+      '.pw-vr-warn td{background:#fffbeb}',
+      '.pw-er-chip{font-size:10px;padding:2px 6px;border-radius:4px;font-weight:500}',
+      '.pw-er-hi{background:#fef2f2;color:#dc2626}',
+      '.pw-er-md{background:#fffbeb;color:#d97706}',
+      '.pw-er-lo{background:#f0fdf4;color:#16a34a}',
+      '.pw-issue-chip{font-size:10px;padding:2px 6px;border-radius:4px;background:#fef2f2;color:#dc2626;font-weight:500;margin-right:3px}',
+      '.pw-table-note{font-size:11px;color:#aaa;margin-bottom:10px}',
+      '.pw-table-legend{display:flex;gap:16px;margin-top:8px;font-size:11px;color:#aaa;flex-wrap:wrap}',
+      '.pw-legend-sq{width:10px;height:10px;border-radius:2px;display:inline-block;margin-right:4px;vertical-align:middle}',
     ].join('');
     document.head.appendChild(style);
   }
@@ -633,6 +648,84 @@
     return section;
   }
  
+  // —— Sprint 4: Таблица видео ———————————————————————————————————————————————————————————————
+  function buildVideoTable(full) {
+    var cm = (full && full.channel_metrics) || {};
+    var videos = cm.videos_list || [];
+    if (!videos.length) {
+      return h('p', { style: 'font-size:13px;color:#aaa' }, 'Данные видео недоступны. Перезапустите аудит.');
+    }
+ 
+    var wrap = h('div');
+ 
+    // Note
+    wrap.appendChild(h('p', { class: 'pw-table-note' }, 'Последние ' + videos.length + ' видео · строки с проблемами подсвечены'));
+ 
+    // Table
+    var table = h('table', { class: 'pw-video-table', 'aria-label': 'Метрики видео канала' });
+ 
+    // Thead
+    var thead = h('thead');
+    var headRow = h('tr');
+    var cols = [
+      { label: 'Название', style: 'width:38%' },
+      { label: 'Просм.',   style: 'width:11%;text-align:right' },
+      { label: 'Лайки',    style: 'width:9%;text-align:right' },
+      { label: 'ER',        style: 'width:11%;text-align:right' },
+      { label: 'Длина',     style: 'width:13%;text-align:right' },
+      { label: 'Проблема',  style: 'width:18%' }
+    ];
+    cols.forEach(function (c) {
+      headRow.appendChild(h('th', { style: c.style }, c.label));
+    });
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+ 
+    // Tbody
+    var tbody = h('tbody');
+    videos.forEach(function (v) {
+      var er = parseFloat(v.er || 0);
+      var erClass = er < 0.5 ? 'pw-er-hi' : er < 1.5 ? 'pw-er-md' : 'pw-er-lo';
+      var issues = Array.isArray(v.issues) ? v.issues : [];
+      var rowClass = (er < 0.5 && issues.indexOf('reused') !== -1) ? 'pw-vr-err' : er < 1.5 ? 'pw-vr-warn' : '';
+ 
+      var tr = h('tr', rowClass ? { class: rowClass } : {});
+      tr.appendChild(h('td', { style: 'color:#1a1a1a' }, v.title || ''));
+      tr.appendChild(h('td', { style: 'text-align:right;color:#555' }, v.view_count_fmt || String(v.view_count || 0)));
+      tr.appendChild(h('td', { style: 'text-align:right;color:#555' }, String(v.like_count || 0)));
+ 
+      var erTd = h('td', { style: 'text-align:right' });
+      erTd.appendChild(h('span', { class: 'pw-er-chip ' + erClass }, (v.er || '0') + '%'));
+      tr.appendChild(erTd);
+ 
+      tr.appendChild(h('td', { style: 'text-align:right;color:#555' }, v.duration_fmt || ''));
+ 
+      var issueTd = h('td');
+      issues.forEach(function (iss) {
+        issueTd.appendChild(h('span', { class: 'pw-issue-chip' }, iss));
+      });
+      tr.appendChild(issueTd);
+ 
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+ 
+    // Legend
+    var legend = h('div', { class: 'pw-table-legend' });
+    var leg1 = h('span');
+    leg1.appendChild(h('span', { class: 'pw-legend-sq', style: 'background:#fef2f2;border:1px solid #fca5a5' }));
+    leg1.appendChild(document.createTextNode('Красный — ER < 0.5% + reused'));
+    legend.appendChild(leg1);
+    var leg2 = h('span');
+    leg2.appendChild(h('span', { class: 'pw-legend-sq', style: 'background:#fffbeb;border:1px solid #fde68a' }));
+    leg2.appendChild(document.createTextNode('Жёлтый — ER ниже нормы'));
+    legend.appendChild(leg2);
+    wrap.appendChild(legend);
+ 
+    return wrap;
+  }
+ 
   // —— Объединение сигналов Блок 2 ——————————————————————————————————————————————————————————
   // PHP-сигналы (type, level, title, detail) + AI-сигналы (level, title, description, recommendation)
   function mergeB2Signals(full) {
@@ -673,6 +766,7 @@
       { label: 'Блок 1 · Допуск',        risk: b1Risk, panelTitle: 'Обязательные критерии',      type: 'criteria',  data: criteria },
       { label: 'Блок 2 · Демонетизация', risk: b2Risk, panelTitle: 'Риски демонетизации',        type: 'signals2',  data: b2Sigs   },
       { label: 'Блок 3 · Страйки',       risk: b3Risk, panelTitle: 'Риски авторских прав',       type: 'signals3',  data: b3Sigs   },
+      { label: 'Видео по видео',          risk: null,   panelTitle: 'Метрики видео канала',       type: 'videos',    data: full     },
     ];
  
     // —— Tab row ——
@@ -697,7 +791,7 @@
       // Подзаголовок с бейджем риска
       var phdr = h('div', { style: 'display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:6px' });
       phdr.appendChild(h('div', { style: 'font-size:13px;font-weight:500;color:#1a1a1a' }, td.panelTitle));
-      phdr.innerHTML += badge(td.risk);
+      if (td.risk !== null) phdr.innerHTML += badge(td.risk);
       panel.appendChild(phdr);
  
       if (td.type === 'criteria') {
@@ -770,6 +864,11 @@
           });
           panel.appendChild(rulesBox);
         }
+ 
+      } else if (td.type === 'videos') {
+        // Sprint 4: таблица видео
+        var videoContent = buildVideoTable(full);
+        if (videoContent) panel.appendChild(videoContent);
       }
  
       panels.push(panel);

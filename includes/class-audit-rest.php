@@ -106,7 +106,7 @@ class PW_Audit_REST {
 
         // Итоговые значения
         if ( $ai_ok ) {
-            // PHP-сигналђ могут повысить риск блока 2
+            // PHP-сигналы могут повысить риск блока 2
             $final_block2_risk = $this->merge_risk( $php_block2_risk, $ai_result['block2_risk'] );
             $final_block3_risk = $ai_result['block3_risk'];
             $final_verdict     = $early_verdict ?? $ai_result['verdict'];
@@ -381,13 +381,20 @@ class PW_Audit_REST {
         // Полный отчёт — только если оплачен (или admin)
         if ( $audit->is_paid || current_user_can( 'manage_options' ) ) {
             $response['full'] = [
-                'block1_criteria'         => $full['block1_criteria']           ?? $preview['block1_criteria'] ?? [],
-                'block2_signals'          => $full['block2_signals']           ?? [],
-                'block3_signals'          => $full['block3_signals']            ?? [],
-                'php_signals'             => $full['php_signals']               ?? $preview['php_signals'] ?? [],
-                'summary_for_moderator'   => $full['summary_for_moderator']     ?? '',
-                'recommendations_for_user'=> $full['recommendations_for_user'] ?? [],
-                'channel_metrics'         => $full['channel_metrics']           ?? [],
+                'block1_criteria'          => $full['block1_criteria']            ?? $preview['block1_criteria'] ?? [],
+                'block2_signals'           => $full['block2_signals']             ?? [],
+                'block3_signals'           => $full['block3_signals']             ?? [],
+                'php_signals'              => $full['php_signals']                ?? $preview['php_signals'] ?? [],
+                'summary_for_moderator'    => $full['summary_for_moderator']      ?? '',
+                'recommendations_for_user' => $full['recommendations_for_user']   ?? [],
+                'channel_metrics'          => $full['channel_metrics']            ?? [],
+                // Sprint 1: новые поля AI-ответа
+                'priority_action'          => $full['priority_action']            ?? '',
+                'retry_context'            => $full['retry_context']              ?? '',
+                'checklist_moderator'      => $full['checklist_moderator']        ?? [],
+                'metric_explanations'      => $full['metric_explanations']        ?? null,
+                'content_allowed'          => $full['content_allowed']            ?? [],
+                'content_forbidden'        => $full['content_forbidden']          ?? [],
             ];
         } else {
             $response['full'] = null;

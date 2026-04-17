@@ -982,8 +982,15 @@
     if (el) el.remove();
     var ar = document.querySelector('.audit-result');
     if (ar) ar.style.display = '';
+    var afr = document.querySelector('.audit-full-report');
+    if (afr) afr.style.display = '';
     var ub = document.querySelector('.audit-unlock-button');
     if (ub) ub.style.display = '';
+  }
+ 
+  // Получить ID аудита из URL (fallback если store.auditId неверный)
+  function getAuditIdFromUrl() {
+    try { return parseInt(new URLSearchParams(location.search).get('id')) || 0; } catch(e) { return 0; }
   }
  
   // —— Кеш и загрузка полных данных аудита из REST API ———————————————————————————————————————
@@ -1042,10 +1049,12 @@
     var isPaid = store.isPaid || (report && report.is_paid);
  
     var hasApiData = _apiData && _apiData.full;
-    if (isPaid && !full && !hasApiData && store.auditId) {
+    // Используем URL ID как fallback (store.auditId может быть от предыдущего аудита)
+    var fetchId = getAuditIdFromUrl() || store.auditId || 0;
+    if (isPaid && !full && !hasApiData && fetchId) {
       // Данные ещё не загружены — fetches API и перерендерит
       inject.appendChild(buildPreviewCard(report, store));
-      fetchAuditFull(store.auditId, function (apiData) {
+      fetchAuditFull(fetchId, function (apiData) {
         renderReport(store, apiData || {});
       });
     } else {
@@ -1054,6 +1063,8 @@
  
     // Скрываем оригинальные Vue-секции
     auditResult.style.display = 'none';
+    var fullReportDiv = document.querySelector('.audit-full-report');
+    if (fullReportDiv) fullReportDiv.style.display = 'none';
     var unlockDiv = document.querySelector('.audit-unlock-button');
     if (unlockDiv) unlockDiv.style.display = 'none';
   }

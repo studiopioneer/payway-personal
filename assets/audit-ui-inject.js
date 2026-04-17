@@ -1,5 +1,5 @@
 /**
- * PayWay Audit UI Injector v4.5-sprint5
+ * PayWay Audit UI Injector v4.8-landing
  * Читает данные из Pinia store и переестраивает DOM под прототип v2
  *
  * store.report  : { verdict, verdict_reason, summary, admission, demonetization, copyright }
@@ -192,6 +192,24 @@
       '.pw-table-note{font-size:11px;color:#aaa;margin-bottom:10px}',
       '.pw-table-legend{display:flex;gap:16px;margin-top:8px;font-size:11px;color:#aaa;flex-wrap:wrap}',
       '.pw-legend-sq{width:10px;height:10px;border-radius:2px;display:inline-block;margin-right:4px;vertical-align:middle}',
+ 
+      /* Landing block */
+      '#pw-audit-landing{font-family:"Inter",system-ui,sans-serif;margin-bottom:24px}',
+      '.pw-lnd-hero{background:linear-gradient(135deg,#1a1a1a 0%,#2d1a1a 100%);border-radius:12px;padding:32px 36px;margin-bottom:20px;color:#fff}',
+      '.pw-lnd-eyebrow{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#E8192C;margin-bottom:10px}',
+      '.pw-lnd-title{font-size:26px;font-weight:700;line-height:1.3;margin-bottom:10px}',
+      '.pw-lnd-sub{font-size:14px;color:#aaa;line-height:1.6;max-width:520px}',
+      '.pw-lnd-free{display:inline-flex;align-items:center;gap:8px;background:rgba(232,25,44,.15);border:1px solid rgba(232,25,44,.3);border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;color:#ff6b7a;margin-top:16px}',
+      '.pw-lnd-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}',
+      '.pw-lnd-card{background:#fff;border:1px solid #e8e8e8;border-radius:10px;padding:16px 18px}',
+      '.pw-lnd-card-icon{font-size:22px;margin-bottom:8px}',
+      '.pw-lnd-card-title{font-size:13px;font-weight:600;color:#1a1a1a;margin-bottom:4px}',
+      '.pw-lnd-card-text{font-size:12px;color:#888;line-height:1.5}',
+      '.pw-lnd-tech{background:#f9fafb;border:1px solid #f0f0f0;border-radius:10px;padding:16px 18px;display:flex;align-items:center;gap:24px;flex-wrap:wrap}',
+      '.pw-lnd-tech-label{font-size:11px;font-weight:600;color:#bbb;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}',
+      '.pw-lnd-tech-items{display:flex;gap:10px;flex-wrap:wrap}',
+      '.pw-lnd-chip{background:#fff;border:1px solid #e8e8e8;border-radius:6px;padding:4px 10px;font-size:12px;color:#555;font-weight:500}',
+      '@media(max-width:768px){.pw-lnd-grid{grid-template-columns:1fr}.pw-lnd-hero{padding:24px 20px}.pw-lnd-title{font-size:20px}}',
     ].join('');
     document.head.appendChild(style);
   }
@@ -1191,6 +1209,86 @@
     return wrap;
   }
  
+  // —— Лендинговый блок (до отправки формы) ———————————————————————————————————————————————————
+  function buildLanding(store) {
+    var wrap = h('div', { id: 'pw-audit-landing' });
+ 
+    // Читаем credit_status если доступен (из unlockInfo на странице с ?id=)
+    var unlockInfo = (store && store.unlockInfo) || {};
+    var creditStatus = unlockInfo.credit_status || {};
+    var freeRemaining = creditStatus.free_remaining;
+    var freeTotal = creditStatus.free_total || 3;
+    var badgeText = (typeof freeRemaining === 'number')
+      ? '\u2605 ' + freeRemaining + ' из ' + freeTotal + ' бесплатных отчётов'
+      : '\u2605 3 полных отчёта бесплатно \u00B7 1 в день';
+ 
+    wrap.innerHTML =
+      '<div class="pw-lnd-hero">' +
+        '<div class="pw-lnd-eyebrow">Инструмент для контентмейкеров</div>' +
+        '<div class="pw-lnd-title">Узнайте, готов ли ваш канал<br>к монетизации через AdSense</div>' +
+        '<div class="pw-lnd-sub">' +
+          'Полный аудит за 1\u20132 минуты. Анализируем 20+ параметров канала через YouTube API ' +
+          'и GPT-4o. Получите конкретные рекомендации \u2014 не общие советы, а точные числа.' +
+        '</div>' +
+        '<div class="pw-lnd-free">' + badgeText + '</div>' +
+      '</div>' +
+      '<div class="pw-lnd-grid">' +
+        '<div class="pw-lnd-card">' +
+          '<div class="pw-lnd-card-icon">\u2705</div>' +
+          '<div class="pw-lnd-card-title">Допуск к монетизации</div>' +
+          '<div class="pw-lnd-card-text">' +
+            'Проверяем 6 обязательных критериев PayWay: возраст канала, регулярность публикаций, ' +
+            'верификацию, статус madeForKids и другие.' +
+          '</div>' +
+        '</div>' +
+        '<div class="pw-lnd-card">' +
+          '<div class="pw-lnd-card-icon">\u26A0\uFE0F</div>' +
+          '<div class="pw-lnd-card-title">Риски демонетизации</div>' +
+          '<div class="pw-lnd-card-text">' +
+            'Выявляем признаки reused-контента, одинаковую длину видео, аномальный ER ' +
+            'и другие сигналы которые YouTube использует для отключения монетизации.' +
+          '</div>' +
+        '</div>' +
+        '<div class="pw-lnd-card">' +
+          '<div class="pw-lnd-card-icon">\u00A9\uFE0F</div>' +
+          '<div class="pw-lnd-card-title">Авторские права</div>' +
+          '<div class="pw-lnd-card-text">' +
+            'Анализируем теги, названия и тематику на упоминание защищённых брендов, ' +
+            'фильмов и франшиз. Предупреждаем о рисках Content ID страйков.' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="pw-lnd-tech">' +
+        '<div class="pw-lnd-tech-label">Используем</div>' +
+        '<div class="pw-lnd-tech-items">' +
+          '<span class="pw-lnd-chip">YouTube Data API v3</span>' +
+          '<span class="pw-lnd-chip">GPT-4o</span>' +
+          '<span class="pw-lnd-chip">20 видео с метриками</span>' +
+          '<span class="pw-lnd-chip">PHP анализ reused-сигналов</span>' +
+          '<span class="pw-lnd-chip">AdSense критерии</span>' +
+        '</div>' +
+      '</div>';
+ 
+    return wrap;
+  }
+ 
+  function showLanding(store) {
+    if (document.getElementById('pw-audit-landing')) return;
+    // Ищем контейнер Vue-приложения
+    var vueApp = document.querySelector('[data-v-app]');
+    if (!vueApp) return;
+    // Вставляем лендинг перед первым дочерним элементом Vue-приложения
+    var target = vueApp.querySelector('.surface-card') || vueApp.firstElementChild;
+    if (!target) return;
+    var landing = buildLanding(store);
+    target.parentElement.insertBefore(landing, target);
+  }
+ 
+  function removeLanding() {
+    var el = document.getElementById('pw-audit-landing');
+    if (el) el.remove();
+  }
+ 
   // —— Главная функция рендера ——————————————————————————————————————————————————————————————
   function removeInject() {
     var el = document.getElementById('pw-audit-inject');
@@ -1346,7 +1444,10 @@
       return;
     }
  
-    if (store.status === 'done' && store.report) {
+    // Лендинг: показать когда форма ещё не отправлена (status пуст или idle)
+    if (!store.status || store.status === 'idle') {
+      showLanding(store);
+    } else if (store.status === 'done' && store.report) {
       renderReport(store);
     }
  
@@ -1357,6 +1458,11 @@
       if (!s) return;
  
       var currKey = (s.auditId || '') + '/' + (s.isPaid ? '1' : '0') + '/' + (s.status || '');
+ 
+      // Убрать лендинг когда пользователь отправил форму
+      if (s.status && s.status !== 'idle') {
+        removeLanding();
+      }
  
       // v4.7: показывать информативный прелоадер при processing/pending
       if (s.status === 'processing' || s.status === 'pending') {

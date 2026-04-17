@@ -153,6 +153,12 @@ add_action( 'wp_ajax_payway_fresh_nonce', function () {
 // -- Audit nonce injection via wp_head (fetch interceptor) ----------------
 add_action( 'wp_head', function () {
     if ( strpos( $_SERVER['REQUEST_URI'] ?? '', '/audit' ) === false ) return;
+ 
+    // v4.8: SEO meta title + description для страницы /audit/
+    echo '<meta name="description" content="Бесплатный анализ вашего YouTube-канала: проверяем готовность к монетизации через AdSense, риски демонетизации и авторских прав. Используем YouTube Data API и GPT-4o. 3 отчёта бесплатно." />';
+    echo '<meta property="og:title" content="Аудит YouTube-канала — проверка готовности к монетизации AdSense · PayWay" />';
+    echo '<meta property="og:description" content="Полный аудит за 1–2 минуты. Анализируем 20+ параметров канала. Получите конкретные рекомендации — не общие советы, а точные числа." />';
+    echo '<script>document.title="Аудит YouTube-канала — проверка готовности к монетизации AdSense · PayWay";</script>';
     // FIX: PrimeVue hover:surface-hover uses surface-800 in light mode (почти чёрный) — override на светлый
     echo '<style>.hover\:surface-hover:hover{background-color:var(--p-surface-50,#f8fafc)!important;transition:background .15s}</style>';
     $nonce = wp_create_nonce( 'wp_rest' );
@@ -224,7 +230,7 @@ function payway_inject_audit_history_loader_v2() {
 // -- Audit UI v3: direct script src inject (bypasses wp_enqueue handle) --
 add_action( 'wp_footer', function () {
     if ( strpos( $_SERVER['REQUEST_URI'] ?? '', '/audit' ) === false ) return;
-    $url = plugin_dir_url( __FILE__ ) . 'assets/audit-ui-inject.js?ver=5.6';
+    $url = plugin_dir_url( __FILE__ ) . 'assets/audit-ui-inject.js?ver=5.7';
     echo '<script src="' . esc_url( $url ) . '"></script>' . "\n";
 }, 5 );
 

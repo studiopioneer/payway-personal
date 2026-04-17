@@ -1505,6 +1505,25 @@
     }, 800);
   }
  
+  // —— SEO: meta-теги (account.php не вызывает wp_head, поэтому inject через JS) ————————————
+  (function injectSEO() {
+    if (location.pathname.indexOf('/audit') === -1) return;
+    document.title = 'Аудит YouTube-канала — проверка готовности к монетизации AdSense · PayWay';
+    function addMeta(attr, key, content) {
+      if (document.querySelector('meta[' + attr + '="' + key + '"]')) return;
+      var m = document.createElement('meta');
+      m.setAttribute(attr, key);
+      m.setAttribute('content', content);
+      document.head.appendChild(m);
+    }
+    addMeta('name', 'description',
+      'Бесплатный анализ вашего YouTube-канала: проверяем готовность к монетизации через AdSense, риски демонетизации и авторских прав. Используем YouTube Data API и GPT-4o. 3 отчёта бесплатно.');
+    addMeta('property', 'og:title',
+      'Аудит YouTube-канала — проверка готовности к монетизации AdSense · PayWay');
+    addMeta('property', 'og:description',
+      'Полный аудит за 1–2 минуты. Анализируем 20+ параметров канала. Получите конкретные рекомендации — не общие советы, а точные числа.');
+  })();
+ 
   // —— Старф —————————————————————————————————————————————————————————————————————————————————
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () {

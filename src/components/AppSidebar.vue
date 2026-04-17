@@ -11,6 +11,7 @@
             class="no-underline p-ripple flex align-items-center cursor-pointer p-3 border-round transition-duration-150 transition-colors w-full"
             :class="isActive(item.path) ? 'text-blue-700 bg-blue-50' : 'text-700 hover:surface-100'"
             v-ripple
+            @click="$emit('navigate')"
           >
             <i :class="[item.icon, 'mr-2']"></i>
             <span class="font-medium">{{ item.label }}</span>
@@ -26,6 +27,7 @@
             to="/profile"
             class="no-underline p-ripple flex cursor-pointer p-3 border-round text-700 hover:surface-100 transition-duration-150 transition-colors w-full"
             v-ripple
+            @click="$emit('navigate')"
           >
             <i class="pi pi-id-card mr-2"></i>
             <span class="font-medium">Профиль</span>
@@ -46,28 +48,32 @@
     </div>
   </div>
 </template>
-
+ 
 <script setup>
 import { useRoute, useRouter } from 'vue-router'
 import PaywayLogo from './PaywayLogo.vue'
 import { useAuth } from '@/composables/useAuth.js'
-
+ 
 const route = useRoute()
 const router = useRouter()
 const { logout } = useAuth()
-
+ 
+defineEmits(['navigate'])
+ 
 const menuItems = [
   { path: '/account', icon: 'pi pi-wallet', label: 'Вывод средств' },
   { path: '/unlock', icon: 'pi pi-unlock', label: 'Разблокировка средств' },
   { path: '/projects', icon: 'pi pi-folder-open', label: 'Мои проекты' },
-    { path: '/referrals', icon: 'pi pi-users', label: 'Рефералы' },
-  { path: '/stats', icon: 'pi pi-chart-bar', label: 'Статистика' }
+  { path: '/referrals', icon: 'pi pi-users', label: 'Рефералы' },
+  { path: '/stats', icon: 'pi pi-chart-bar', label: 'Статистика' },
+  { path: '/audit', icon: 'pi pi-search', label: 'Аудит канала' },
+  { path: '/audit-history', icon: 'pi pi-history', label: 'История аудитов' }
 ]
-
+ 
 function isActive(path) {
   return route.path === path
 }
-
+ 
 function handleLogout() {
   logout()
   router.push('/login')

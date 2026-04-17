@@ -1,5 +1,5 @@
 /**
- * PayWay Audit UI Injector v4.3-sprint4
+ * PayWay Audit UI Injector v4.4-sprint5
  * Читает данные из Pinia store и переестраивает DOM под прототип v2
  *
  * store.report  : { verdict, verdict_reason, summary, admission, demonetization, copyright }
@@ -122,12 +122,24 @@
       '.pw-flag-note strong{color:#92400e}',
  
       /* Recommendations */
+      /* Sprint 5: recommendations redesign */
       '.pw-recs-section{padding:0 18px 16px}',
       '.pw-recs-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#bbb;padding:4px 0 10px}',
-      '.pw-rec-item{display:flex;align-items:flex-start;gap:9px;padding:6px 0;border-bottom:1px solid #f5f5f5}',
-      '.pw-rec-item:last-child{border-bottom:none}',
-      '.pw-rec-num{width:18px;height:18px;border-radius:50%;background:#f0f0f0;font-size:9px;font-weight:700;color:#888;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}',
-      '.pw-rec-text{font-size:11px;color:#555;line-height:1.5}',
+      '.pw-rec-list{display:flex;flex-direction:column;gap:10px}',
+      '.pw-rec-item{display:flex;align-items:flex-start;gap:10px;padding:11px 13px;background:#f9fafb;border-radius:8px;border:1px solid #f0f0f0}',
+      '.pw-rec-num{width:20px;height:20px;border-radius:50%;background:#E8192C;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:#fff;flex-shrink:0;margin-top:1px}',
+      '.pw-rec-title{font-size:13px;font-weight:500;color:#1a1a1a;margin-bottom:3px}',
+      '.pw-rec-text{font-size:12px;color:#555;line-height:1.5}',
+      '.pw-rec-tag{font-size:10px;padding:1px 6px;border-radius:4px;background:#ffeaeb;color:#E8192C;font-weight:500;margin-top:5px;display:inline-block}',
+      '.pw-rec-tag.important{background:#fffbeb;color:#d97706}',
+      '.pw-rec-tag.recommended{background:#f0f0f0;color:#555}',
+      /* Sprint 5: moderator checklist */
+      '.pw-mod-block{margin-top:16px}',
+      '.pw-mod-summary{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px 14px;font-size:12px;color:#92400e;line-height:1.6;margin-bottom:12px}',
+      '.pw-mod-summary strong{color:#78350f}',
+      '.pw-checklist{display:flex;flex-direction:column;gap:6px}',
+      '.pw-check-item{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:#555;padding:7px 10px;background:#f9fafb;border-radius:7px;line-height:1.5}',
+      '.pw-check-num{width:18px;height:18px;border-radius:50%;background:#d97706;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:#fff;flex-shrink:0;margin-top:1px}',
  
       /* Action row */
       '.pw-action-row{display:flex;gap:10px;flex-wrap:wrap;padding:0 16px 16px}',
@@ -621,31 +633,98 @@
     return row;
   }
  
-  // —— Рекомендации для автора ———————————————————————————————————————————————————————————————
-  function buildRecommendations(recs) {
-    if (!Array.isArray(recs) || !recs.length) return null;
+  // —— Sprint 5: Рекомендации для автора (redesign) ————————————————————————————————————————
+  function buildRecommendations(recs, full) {
     var section = h('div', { class: 'pw-recs-section' });
     section.appendChild(h('div', { class: 'pw-recs-title' }, 'Рекомендации автору канала'));
-    recs.forEach(function (rec, i) {
-      var item = h('div', { class: 'pw-rec-item' });
-      item.appendChild(h('div', { class: 'pw-rec-num' }, String(i + 1)));
-      // Sprint 1 changed format from string to {title, text, tag}
-      if (typeof rec === 'object' && rec !== null) {
-        var recWrap = h('div', { class: 'pw-rec-text' });
-        if (rec.title) {
-          recWrap.appendChild(h('div', { style: 'font-weight:600;margin-bottom:3px' }, rec.title));
-        }
-        recWrap.appendChild(h('div', {}, rec.text || rec.description || ''));
-        if (rec.tag) {
-          recWrap.appendChild(h('div', { style: 'font-size:10px;color:#aaa;margin-top:3px' }, rec.tag));
-        }
-        item.appendChild(recWrap);
-      } else {
-        item.appendChild(h('div', { class: 'pw-rec-text' }, rec));
+    var list = h('div', { class: 'pw-rec-list' });
+    var idx = 0;
+ 
+    // 1. priority_action — first item with red badge + tag "Критично"
+    var priorityAction = (full && full.priority_action) || '';
+    if (priorityAction) {
+      idx++;
+      var paItem = h('div', { class: 'pw-rec-item' });
+      paItem.appendChild(h('div', { class: 'pw-rec-num' }, String(idx)));
+      var paBody = h('div');
+      paBody.appendChild(h('div', { class: 'pw-rec-title' }, 'Первоочередное действие'));
+      paBody.appendChild(h('div', { class: 'pw-rec-text' }, priorityAction));
+      // retry_context as subtitle
+      var retryCtx = (full && full.retry_context) || '';
+      if (retryCtx) {
+        paBody.appendChild(h('div', { class: 'pw-rec-text', style: 'margin-top:4px;color:#92400e' }, retryCtx));
       }
-      section.appendChild(item);
-    });
+      paBody.appendChild(h('span', { class: 'pw-rec-tag' }, 'Критично'));
+      paItem.appendChild(paBody);
+      list.appendChild(paItem);
+    }
+ 
+    // 2. Rest of recommendations
+    if (Array.isArray(recs) && recs.length) {
+      recs.forEach(function (rec) {
+        idx++;
+        var item = h('div', { class: 'pw-rec-item' });
+        item.appendChild(h('div', { class: 'pw-rec-num' }, String(idx)));
+        var body = h('div');
+ 
+        if (typeof rec === 'object' && rec !== null) {
+          // Structured: {title, text, tag}
+          if (rec.title) body.appendChild(h('div', { class: 'pw-rec-title' }, rec.title));
+          body.appendChild(h('div', { class: 'pw-rec-text' }, rec.text || rec.description || ''));
+          if (rec.tag) {
+            var tagCls = 'pw-rec-tag';
+            var tagLower = (rec.tag || '').toLowerCase();
+            if (tagLower === 'важно' || tagLower === 'important') tagCls += ' important';
+            else if (tagLower !== 'критично' && tagLower !== 'critical') tagCls += ' recommended';
+            body.appendChild(h('span', { class: tagCls }, rec.tag));
+          }
+        } else {
+          // String (old format) — title = first 60 chars
+          var recStr = String(rec);
+          var title = recStr.length > 60 ? recStr.substring(0, 60) + '…' : recStr;
+          body.appendChild(h('div', { class: 'pw-rec-title' }, title));
+          if (recStr.length > 60) body.appendChild(h('div', { class: 'pw-rec-text' }, recStr));
+        }
+ 
+        item.appendChild(body);
+        list.appendChild(item);
+      });
+    }
+ 
+    if (idx === 0) return null;
+    section.appendChild(list);
     return section;
+  }
+ 
+  // —— Sprint 5: Чеклист модератора (admin only) ——————————————————————————————————————————
+  function buildModeratorChecklist(full) {
+    var isAdmin = window.paywayAuditCfg && window.paywayAuditCfg.is_admin === true;
+    if (!isAdmin) return null;
+ 
+    var summaryMod = (full && full.summary_for_moderator) || '';
+    var checklist = (full && Array.isArray(full.checklist_moderator)) ? full.checklist_moderator : [];
+    if (!summaryMod && !checklist.length) return null;
+ 
+    var block = h('div', { class: 'pw-mod-block' });
+ 
+    if (summaryMod) {
+      var summary = h('div', { class: 'pw-mod-summary' });
+      summary.innerHTML = '<strong>Для ручной проверки:</strong> ' + summaryMod;
+      block.appendChild(summary);
+    }
+ 
+    if (checklist.length) {
+      var listEl = h('div', { class: 'pw-checklist' });
+      checklist.forEach(function (item, i) {
+        var row = h('div', { class: 'pw-check-item' });
+        row.appendChild(h('div', { class: 'pw-check-num' }, String(i + 1)));
+        row.appendChild(h('div', {}, typeof item === 'string' ? item : (item.text || item.title || '')));
+        listEl.appendChild(row);
+      });
+      block.appendChild(listEl);
+    }
+ 
+    return block;
   }
  
   // —— Sprint 4: Таблица видео ———————————————————————————————————————————————————————————————
@@ -875,16 +954,13 @@
       wrap.appendChild(panel);
     });
  
-    // —— Итог для модератора ——
-    if (summaryMod) {
-      var note = h('div', { class: 'pw-flag-note' });
-      note.innerHTML = '<strong>Итог для модератора:</strong> ' + summaryMod;
-      wrap.appendChild(note);
-    }
- 
-    // —— Рекомендации для автора ——
-    var recsEl = buildRecommendations(recs);
+    // —— Sprint 5: Рекомендации для автора (redesign) ——
+    var recsEl = buildRecommendations(recs, full);
     if (recsEl) wrap.appendChild(recsEl);
+ 
+    // —— Sprint 5: Чеклист модератора (admin only) ——
+    var modBlock = buildModeratorChecklist(full);
+    if (modBlock) wrap.appendChild(modBlock);
  
     // —— Кнопка ——
     var actRow = h('div', { class: 'pw-action-row' });

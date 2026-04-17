@@ -996,27 +996,48 @@
   // —— Кеш и загрузка полных данных аудита из REST API ———————————————————————————————————————
   var _pwApiCache = {};
   var _pwApiFailed = {}; // ID аудитов, для которых fetch завершился ошибкой — не повторяем
+  var _pwNonceRefreshed = false;
+ 
+  // Получить свежий nonce через admin-ajax (cookie-auth, не зависит от кеша страницы)
+  function refreshNonce(cb) {
+    if (_pwNonceRefreshed) { cb(); return; }
+    fetch('/wp-admin/admin-ajax.php?action=payway_fresh_nonce', { credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d && d.success && d.data && d.data.nonce) {
+          window.paywayAuditCfg = window.paywayAuditCfg || {};
+          window.paywayAuditCfg.nonce = d.data.nonce;
+          _pwNonceRefreshed = true;
+        }
+        cb();
+      })
+      .catch(function () { cb(); });
+  }
  
   function fetchAuditFull(auditId, cb) {
     if (_pwApiFailed[auditId]) { cb({ _error: true }); return; }
     if (_pwApiCache[auditId]) { cb(_pwApiCache[auditId]); return; }
-    var nonce = (window.paywayAuditCfg && window.paywayAuditCfg.nonce) || '';
-    fetch('/wp-json/payway/v1/audit/' + auditId + '/status', {
-      credentials: 'same-origin',
-      headers: { 'X-WP-Nonce': nonce }
-    })
-    .then(function (r) { return r.json(); })
-    .then(function (d) {
-      // Если REST вернул ошибку (401, 403 и т.д.) — не кешируем как валидные данные
-      if (d && (d.code || d.data && d.data.status >= 400)) {
-        _pwApiFailed[auditId] = true;
-        cb({ _error: true, code: d.code || 'unknown' });
-        return;
-      }
-      _pwApiCache[auditId] = d;
-      cb(d);
-    })
-    .catch(function () { _pwApiFailed[auditId] = true; cb({ _error: true }); });
+ 
+    // Сначала обновляем nonce, потом делаем запрос
+    refreshNonce(function () {
+      var nonce = (window.paywayAuditCfg && window.paywayAuditCfg.nonce) || '';
+      fetch('/wp-json/payway/v1/audit/' + auditId + '/status', {
+        credentials: 'same-origin',
+        headers: { 'X-WP-Nonce': nonce }
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        // Если REST вернул ошибку (401, 403 и т.д.) — не кешируем как валидные данные
+        if (d && (d.code || d.data && d.data.status >= 400)) {
+          _pwApiFailed[auditId] = true;
+          cb({ _error: true, code: d.code || 'unknown' });
+          return;
+        }
+        _pwApiCache[auditId] = d;
+        cb(d);
+      })
+      .catch(function () { _pwApiFailed[auditId] = true; cb({ _error: true }); });
+    });
   }
  
   function renderReport(store, _apiData) {

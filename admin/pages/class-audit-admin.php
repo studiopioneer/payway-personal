@@ -55,7 +55,7 @@ class Audit_List_Table extends \WP_List_Table {
 			'risk_block3'  => 'Copyright',
 			'is_paid'      => 'Оплата',
 			'time'         => 'Дата',
-			'actions_col'  => 'Отчёт',
+			'actions_col'  => 'Действия',
 		];
 	}
  
@@ -69,7 +69,9 @@ class Audit_List_Table extends \WP_List_Table {
 	}
  
 	protected function get_bulk_actions(): array {
-		return [];
+		return [
+			'bulk_delete' => 'Удалить выбранные',
+		];
 	}
  
 	/* ------------------------------------------------------------------ */
@@ -173,10 +175,22 @@ class Audit_List_Table extends \WP_List_Table {
 	}
  
 	protected function column_actions_col( $item ): string {
-		$url = home_url( '/audit/?id=' . (int) $item['id'] );
+		$view_url = home_url( '/audit/?id=' . (int) $item['id'] );
+		$delete_url = wp_nonce_url(
+			add_query_arg( [
+				'page'     => AuditAdminPage::MENU_SLUG,
+				'action'   => 'delete_audit',
+				'audit_id' => (int) $item['id'],
+			], admin_url( 'admin.php' ) ),
+			'delete_audit_' . (int) $item['id']
+		);
 		return sprintf(
-			'<a href="%s" target="_blank" class="button button-small">Открыть</a>',
-			esc_url( $url )
+			'<a href="%s" target="_blank" class="button button-small">Открыть</a> ' .
+			'<a href="%s" class="button button-small" style="color:#b32d2e;border-color:#b32d2e;" ' .
+			'onclick="return confirm(\'Удалить аудит #%d? Это действие необратимо.\');">Удалить</a>',
+			esc_url( $view_url ),
+			esc_url( $delete_url ),
+			(int) $item['id']
 		);
 	}
  
@@ -308,6 +322,7 @@ class AuditAdminPage {
 	public static function init(): void {
 		$instance = new self();
 		add_action( 'admin_menu', [ $instance, 'register_menu' ], 10 );
+		add_action( 'admin_init', [ $instance, 'handle_actions' ] );
 	}
  
 	public function register_menu(): void {
@@ -321,9 +336,65 @@ class AuditAdminPage {
 		);
 	}
  
+	/**
+	 * Обработка действий: удаление одного аудита или bulk-удаление.
+	 */
+	public function handle_actions(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+ 
+		global $wpdb;
+		$table = $wpdb->prefix . 'pw_channel_audits';
+ 
+		// Одиночное удаление
+		if ( isset( $_GET['action'] ) && $_GET['action'] === 'delete_audit' && isset( $_GET['audit_id'] ) ) {
+			$audit_id = (int) $_GET['audit_id'];
+			check_admin_referer( 'delete_audit_' . $audit_id );
+ 
+			$wpdb->delete( $table, [ 'id' => $audit_id ], [ '%d' ] );
+ 
+			wp_redirect( add_query_arg( [
+				'page'    => self::MENU_SLUG,
+				'deleted' => 1,
+			], admin_url( 'admin.php' ) ) );
+			exit;
+		}
+ 
+		// Bulk-удаление (чекбоксы + выпадающее действие)
+		if (
+			isset( $_GET['action'] ) && $_GET['action'] === 'bulk_delete'
+			&& ! empty( $_GET['audit'] ) && is_array( $_GET['audit'] )
+		) {
+			check_admin_referer( 'bulk-audits' );
+ 
+			$ids = array_map( 'intval', $_GET['audit'] );
+			$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+			$wpdb->query( $wpdb->prepare(
+				"DELETE FROM `{$table}` WHERE id IN ({$placeholders})",
+				...$ids
+			) );
+ 
+			wp_redirect( add_query_arg( [
+				'page'    => self::MENU_SLUG,
+				'deleted' => count( $ids ),
+			], admin_url( 'admin.php' ) ) );
+			exit;
+		}
+	}
+ 
 	public function render_page(): void {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_die( esc_html__( 'Access denied.' ) );
+		}
+ 
+		// Уведомление об удалении
+		if ( isset( $_GET['deleted'] ) ) {
+			$count = (int) $_GET['deleted'];
+			printf(
+				'<div class="notice notice-success is-dismissible"><p>Удалено аудитов: %d</p></div>',
+				$count
+			);
 		}
  
 		$table = new Audit_List_Table();

@@ -1,0 +1,1 @@
+import{a as r}from"../index.js";function o(e={}){return r.get("/projects",{params:{page:1,per_page:10,order_by:"time",order:"DESC",...e}})}function a(e){return r.post("/projects",e)}function p(e){return r.delete(`/projects/${e}`)}export{a as c,p as d,o as g};

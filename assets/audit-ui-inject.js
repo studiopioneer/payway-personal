@@ -698,7 +698,8 @@
  
   // —— Sprint 5: Чеклист модератора (admin only) ——————————————————————————————————————————
   function buildModeratorChecklist(full) {
-    var isAdmin = window.paywayAuditCfg && window.paywayAuditCfg.is_admin === true;
+    var cfg = window.paywayAuditCfg || {};
+    var isAdmin = cfg.is_admin === true || cfg.is_admin === 'true' || cfg.is_admin === '1' || cfg.is_admin === 1;
     if (!isAdmin) return null;
  
     var summaryMod = (full && full.summary_for_moderator) || '';
@@ -998,7 +999,7 @@
   var _pwApiFailed = {}; // ID аудитов, для которых fetch завершился ошибкой — не повторяем
   var _pwNonceRefreshed = false;
  
-  // Получить свежий nonce через admin-ajax (cookie-auth, не зависит от кеша страницы)
+  // Получить свежий nonce + is_admin через admin-ajax (cookie-auth, не зависит от кеша страницы)
   function refreshNonce(cb) {
     if (_pwNonceRefreshed) { cb(); return; }
     fetch('/wp-admin/admin-ajax.php?action=payway_fresh_nonce', { credentials: 'same-origin' })
@@ -1007,6 +1008,9 @@
         if (d && d.success && d.data && d.data.nonce) {
           window.paywayAuditCfg = window.paywayAuditCfg || {};
           window.paywayAuditCfg.nonce = d.data.nonce;
+          if (typeof d.data.is_admin !== 'undefined') {
+            window.paywayAuditCfg.is_admin = !!d.data.is_admin;
+          }
           _pwNonceRefreshed = true;
         }
         cb();

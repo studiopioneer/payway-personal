@@ -140,6 +140,11 @@ add_action( 'template_redirect', function () {
 		}
 	}
 } );
+// ── Fresh nonce endpoint (обходит кеш страницы) ──────────────────────────────
+add_action( 'wp_ajax_payway_fresh_nonce', function () {
+    wp_send_json_success( [ 'nonce' => wp_create_nonce( 'wp_rest' ) ] );
+} );
+ 
 // ── Audit UI v2: CSS + JS ──────────────────────────────────────
 
 // -- Audit nonce injection via wp_head (fetch interceptor) ----------------

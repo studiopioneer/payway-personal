@@ -638,20 +638,28 @@
       if (st && typeof st.unlockReport === 'function') {
         var id = (report.id != null ? report.id : null) || (st.auditId != null ? st.auditId : null);
         st.unlockReport(id).then(function () {
-          var s = getStore();
-          if (s && s.report) {
-            if (s.full) {
-              renderReport(s);
-            } else {
-              // v4.7: принудительно грузим full из API после разблокировки
-              var fetchId = getAuditIdFromUrl() || (s.auditId) || id;
-              _pwApiCache = {};
-              fetchAuditFull(fetchId, function(apiData) {
-                renderReport(s, apiData || {});
-              });
-            }
-          }
+          // FIX: после unlock Vue перерендерит DOM — даём 500ms на стабилизацию
+          // и принудительно грузим full из API (не полагаемся на store.full)
+          var fetchId = getAuditIdFromUrl() || id;
+          _pwApiCache = {};            // сбросить кэш
+          _pwApiFailed = {};           // сбросить failed-флаги (мог быть стейл nonce)
+          _pwUnlocking = true;         // флаг: не давать setInterval перерендерить
+          setTimeout(function () {
+            fetchAuditFull(fetchId, function(apiData) {
+              _pwUnlocking = false;
+              var s = getStore();
+              if (apiData && !apiData._error) {
+                renderReport(s || {}, apiData);
+              } else {
+                // API не вернул данные — пробуем рендер с тем что есть
+                if (s && s.report) renderReport(s);
+                btn.disabled = false;
+                btn.textContent = btnText;
+              }
+            });
+          }, 500);
         }).catch(function (err) {
+          _pwUnlocking = false;
           btn.disabled = false;
           btn.textContent = btnText;
           var msg = (err && err.message) ? err.message : 'Ошибка при оплате. Попробуйте ещё раз.';
@@ -1199,6 +1207,7 @@
   var _pwApiCache = {};
   var _pwApiFailed = {}; // ID аудитов, для которых fetch завершился ошибкой — не повторяем
   var _pwNonceRefreshed = false;
+  var _pwUnlocking = false; // флаг: unlock в процессе — setInterval не должен перерендерить
  
   // Получить свежий nonce + is_admin через admin-ajax (cookie-auth, не зависит от кеша страницы)
   function refreshNonce(cb) {
@@ -1249,7 +1258,10 @@
     var report = store.report;
     if (!report) return;
  
-    var auditResult = document.querySelector('.audit-result');
+    // FIX: fallback-селектор — после unlock Vue может перерендерить DOM
+    var auditResult = document.querySelector('.audit-result')
+      || document.querySelector('.audit-full-report')
+      || document.querySelector('[data-v-app] .surface-card.border-round-xl');
     if (!auditResult) return;
  
     var container = auditResult.parentElement;
@@ -1266,6 +1278,10 @@
     // Богатые данные: сначала из apiData (прямой fetch), потом из store
     var full    = (_apiData && _apiData.full)    || store.full    || store.reportFull || null;
     var preview = (_apiData && _apiData.preview) || store.preview || null;
+ 
+    // FIX: isPaid перенесён выше — используется в channel card placeholder
+    var isPaid = store.isPaid || (report && report.is_paid)
+      || (_apiData && _apiData.is_paid);
  
     // Sprint 2: Reject banner (before verdict)
     var channelMetrics = (full && full.channel_metrics) || (_apiData && _apiData.full && _apiData.full.channel_metrics) || {};
@@ -1285,9 +1301,6 @@
  
     // 2. Три блока-карточки
     inject.appendChild(buildBlocksRow(report));
- 
-    // 3. Основной контент
-    var isPaid = store.isPaid || (report && report.is_paid);
  
     var hasApiData = _apiData && _apiData.full;
     var apiFailed  = _apiData && _apiData._error;
@@ -1355,6 +1368,9 @@
           }
         }
       }
+ 
+      // FIX: не перерендерить пока unlock в процессе — иначе race condition
+      if (_pwUnlocking) return;
  
       if (currKey !== lastKey) {
         lastKey = currKey;

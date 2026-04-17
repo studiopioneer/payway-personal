@@ -1174,6 +1174,13 @@
   // —— Главная функция рендера ——————————————————————————————————————————————————————————————
   function removeInject() {
     var el = document.getElementById('pw-audit-inject');
+    // Восстановить все скрытые sibling-элементы перед удалением
+    if (el && el.parentElement) {
+      var siblings = el.parentElement.children;
+      for (var si = 0; si < siblings.length; si++) {
+        if (siblings[si].id !== 'pw-audit-inject') siblings[si].style.display = '';
+      }
+    }
     if (el) el.remove();
     var ar = document.querySelector('.audit-result');
     if (ar) ar.style.display = '';
@@ -1328,15 +1335,24 @@
  
       // v4.7: показывать информативный прелоадер при processing/pending
       if (s.status === 'processing' || s.status === 'pending') {
-        var auditResult = document.querySelector('.audit-result');
-        if (auditResult && !document.getElementById('pw-audit-loader')) {
-          var inject = document.getElementById('pw-audit-inject') || h('div', { id: 'pw-audit-inject' });
-          if (!document.getElementById('pw-audit-inject')) {
-            auditResult.parentElement.insertBefore(inject, auditResult);
+        if (!document.getElementById('pw-audit-loader')) {
+          // Находим контейнер: .audit-result (done), или .surface-card (processing), или контент Vue
+          var target = document.querySelector('.audit-result')
+            || document.querySelector('.audit-full-report')
+            || document.querySelector('[data-v-app] .surface-card.border-round-xl');
+          if (target) {
+            var inject = document.getElementById('pw-audit-inject') || h('div', { id: 'pw-audit-inject' });
+            if (!document.getElementById('pw-audit-inject')) {
+              target.parentElement.insertBefore(inject, target);
+            }
+            inject.innerHTML = '';
+            inject.appendChild(buildLoadingScreen());
+            // Скрываем все sibling-элементы Vue в контейнере
+            var siblings = target.parentElement.children;
+            for (var si = 0; si < siblings.length; si++) {
+              if (siblings[si].id !== 'pw-audit-inject') siblings[si].style.display = 'none';
+            }
           }
-          inject.innerHTML = '';
-          inject.appendChild(buildLoadingScreen());
-          auditResult.style.display = 'none';
         }
       }
  

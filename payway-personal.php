@@ -153,6 +153,8 @@ add_action( 'wp_ajax_payway_fresh_nonce', function () {
 // -- Audit nonce injection via wp_head (fetch interceptor) ----------------
 add_action( 'wp_head', function () {
     if ( strpos( $_SERVER['REQUEST_URI'] ?? '', '/audit' ) === false ) return;
+    // FIX: PrimeVue hover:surface-hover uses surface-800 in light mode (почти чёрный) — override на светлый
+    echo '<style>.hover\:surface-hover:hover{background-color:var(--p-surface-50,#f8fafc)!important;transition:background .15s}</style>';
     $nonce = wp_create_nonce( 'wp_rest' );
     $is_admin = current_user_can( 'manage_options' ) ? 'true' : 'false';
 echo '<script>window.paywayAuditCfg={nonce:"' . esc_js( $nonce ) . '",is_admin:' . $is_admin . '};' .

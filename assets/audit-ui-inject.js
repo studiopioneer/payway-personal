@@ -887,7 +887,7 @@
       { label: 'Блок 1 · Допуск',        risk: b1Risk, panelTitle: 'Обязательные критерии',      type: 'criteria',  data: criteria },
       { label: 'Блок 2 · Демонетизация', risk: b2Risk, panelTitle: 'Риски демонетизации',        type: 'signals2',  data: b2Sigs   },
       { label: 'Блок 3 · Страйки',       risk: b3Risk, panelTitle: 'Риски авторских прав',       type: 'signals3',  data: b3Sigs   },
-      { label: 'Видео по видео',          risk: null,   panelTitle: 'Метрики видео канала',       type: 'videos',    data: full     },
+      { label: 'Метрики видео',           risk: null,   panelTitle: 'Метрики видео канала',       type: 'videos',    data: full     },
     ];
  
     // —— Tab row ——

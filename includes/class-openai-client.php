@@ -2,6 +2,7 @@
 /**
  * PW_OpenAI_Client — формирование промпта и запрос к gpt-4o
  * Промпт строго по ТЗ §6
+ * Sprint 6.3: prompt upgrade — конкретные числа + actionable checklist
  */
 class PW_OpenAI_Client {
  
@@ -63,7 +64,7 @@ class PW_OpenAI_Client {
     }
  
     // ─────────────────────────────────────────────────────────
-    // SYSTEM PROMPT (строго по ТЗ §6.1)
+    // SYSTEM PROMPT (строго по ТЗ §6.1 + Sprint 6.3)
     // ─────────────────────────────────────────────────────────
  
     private function get_system_prompt() {
@@ -211,18 +212,32 @@ class PW_OpenAI_Client {
   "content_allowed": ["Что разрешено с данным контентом (если есть block3_signals, иначе пустой массив)"],
   "content_forbidden": ["Что запрещено (если есть block3_signals, иначе пустой массив)"],
   "recommendations_for_user": [
-    {"title": "Краткий заголовок", "text": "Подробное описание с конкретными числами", "tag": "critical"},
-    {"title": "Заголовок", "text": "Описание", "tag": "important"},
-    {"title": "Заголовок", "text": "Описание", "tag": "recommended"}
+    {"title": "Краткий заголовок", "text": "Подробное описание с конкретными числами", "tag": "Критично"},
+    {"title": "Заголовок", "text": "Описание", "tag": "Важно"},
+    {"title": "Заголовок", "text": "Описание", "tag": "Рекомендуется"}
   ]
 }
  
-Поле tag в recommendations_for_user: "critical" — критично, "important" — важно, "recommended" — рекомендуется.
+Поле tag в recommendations_for_user СТРОГО по-русски: "Критично", "Важно", "Рекомендуется".
+ 
+КРИТИЧЕСКИЕ ПРАВИЛА ФОРМИРОВАНИЯ РЕКОМЕНДАЦИЙ:
+1. Каждая рекомендация ОБЯЗАНА содержать конкретные цифры из переданных данных.
+   ПЛОХО: «Разнообразьте длительность видео».
+   ХОРОШО: «75% видео имеют длину ~1:00 (±30 сек) — снимите 3-4 видео на 5+ мин».
+2. Если в php_signals есть ключевые слова — перечисли их явно в рекомендации с указанием количества видео.
+3. Рекомендации должны быть actionable: конкретное действие + конкретный ожидаемый результат.
+4. Используй секцию «КОНКРЕТНЫЕ ФАКТЫ» из пользовательского сообщения дословно в тексте рекомендаций.
+ 
+КРИТИЧЕСКИЕ ПРАВИЛА ФОРМИРОВАНИЯ checklist_moderator:
+Каждый пункт чеклиста — конкретное ДЕЙСТВИЕ, не описание. Примеры:
+ПЛОХО: 'Проверить наличие reused content'.
+ХОРОШО: 'Открыть YouTube Studio → вкладка Content → проверить колонку Monetization на наличие статусов Limited или Off у видео с темами лучшие моменты/приколы'.
+Всегда указывай конкретные пути в интерфейсе YouTube Studio, названия вкладок и ожидаемый результат.
 PROMPT;
     }
  
     // ─────────────────────────────────────────────────────────
-    // USER MESSAGE (§6.2)
+    // USER MESSAGE (§6.2 + Sprint 6.3)
     // ─────────────────────────────────────────────────────────
  
     private function build_user_message( array $yt_data, array $ad ) {
@@ -251,6 +266,21 @@ PROMPT;
             $signal_lines[] = "- [{$s['level']}] {$s['title']}: {$s['detail']}";
         }
         $signals_text = $signal_lines ? implode( "\n", $signal_lines ) : 'Сигналов reused content не обнаружено';
+ 
+        // Sprint 6.3: Сводка числовых фактов для рекомендаций
+        $summary_facts = [];
+        foreach ( $ad['php_signals'] as $sig ) {
+            if ( ! empty( $sig['detail'] ) ) {
+                $summary_facts[] = $sig['detail'];
+            }
+        }
+        $facts_text = '';
+        if ( $summary_facts ) {
+            $facts_text = "\n\nКОНКРЕТНЫЕ ФАКТЫ ДЛЯ РЕКОМЕНДАЦИЙ (используй их дословно):\n";
+            foreach ( $summary_facts as $fact ) {
+                $facts_text .= "- {$fact}\n";
+            }
+        }
  
         // Критерии блока 1
         $block1_lines = [];
@@ -331,7 +361,7 @@ block1_fail = {$b1fail}
 ## PHP-сигналы reused / mass-produced content
  
 {$signals_text}
- 
+{$facts_text}
 ---
  
 ## Последние 20 видео
@@ -342,6 +372,8 @@ block1_fail = {$b1fail}
  
 Проведи аудит Блока 2 (риски демонетизации) и Блока 3 (авторские права).
 Верни JSON строго по схеме из system message. Учти block1_fail при формировании verdict.
+ВАЖНО: поле tag в recommendations_for_user — строго по-русски: «Критично», «Важно», «Рекомендуется».
+ВАЖНО: используй КОНКРЕТНЫЕ ФАКТЫ из секции выше дословно в тексте рекомендаций.
 MSG;
     }
  
@@ -445,12 +477,12 @@ MSG;
                 $rec = [
                     'title' => mb_substr( $rec, 0, 60 ),
                     'text'  => $rec,
-                    'tag'   => 'recommended',
+                    'tag'   => 'Рекомендуется',
                 ];
             } else {
                 $rec['title'] = $rec['title'] ?? '';
                 $rec['text']  = $rec['text'] ?? '';
-                $rec['tag']   = $rec['tag'] ?? 'recommended';
+                $rec['tag']   = $rec['tag'] ?? 'Рекомендуется';
             }
         }
         unset( $rec );

@@ -1,5 +1,5 @@
 /**
- * PayWay Audit UI Injector v4.4-sprint5
+ * PayWay Audit UI Injector v4.5-sprint5
  * Читает данные из Pinia store и переестраивает DOM под прототип v2
  *
  * store.report  : { verdict, verdict_reason, summary, admission, demonetization, copyright }
@@ -995,8 +995,10 @@
  
   // —— Кеш и загрузка полных данных аудита из REST API ———————————————————————————————————————
   var _pwApiCache = {};
+  var _pwApiFailed = {}; // ID аудитов, для которых fetch завершился ошибкой — не повторяем
  
   function fetchAuditFull(auditId, cb) {
+    if (_pwApiFailed[auditId]) { cb({ _error: true }); return; }
     if (_pwApiCache[auditId]) { cb(_pwApiCache[auditId]); return; }
     var nonce = (window.paywayAuditCfg && window.paywayAuditCfg.nonce) || '';
     fetch('/wp-json/payway/v1/audit/' + auditId + '/status', {
@@ -1004,8 +1006,17 @@
       headers: { 'X-WP-Nonce': nonce }
     })
     .then(function (r) { return r.json(); })
-    .then(function (d) { _pwApiCache[auditId] = d; cb(d); })
-    .catch(function () { cb({}); });
+    .then(function (d) {
+      // Если REST вернул ошибку (401, 403 и т.д.) — не кешируем как валидные данные
+      if (d && (d.code || d.data && d.data.status >= 400)) {
+        _pwApiFailed[auditId] = true;
+        cb({ _error: true, code: d.code || 'unknown' });
+        return;
+      }
+      _pwApiCache[auditId] = d;
+      cb(d);
+    })
+    .catch(function () { _pwApiFailed[auditId] = true; cb({ _error: true }); });
   }
  
   function renderReport(store, _apiData) {
@@ -1049,15 +1060,17 @@
     var isPaid = store.isPaid || (report && report.is_paid);
  
     var hasApiData = _apiData && _apiData.full;
+    var apiFailed  = _apiData && _apiData._error;
     // Используем URL ID как fallback (store.auditId может быть от предыдущего аудита)
     var fetchId = getAuditIdFromUrl() || store.auditId || 0;
-    if (isPaid && !full && !hasApiData && fetchId) {
+    if (isPaid && !full && !hasApiData && !apiFailed && fetchId) {
       // Данные ещё не загружены — fetches API и перерендерит
       inject.appendChild(buildPreviewCard(report, store));
       fetchAuditFull(fetchId, function (apiData) {
         renderReport(store, apiData || {});
       });
     } else {
+      // Если оплачен — показываем полный отчёт (даже если full=null, buildFullReport использует report)
       inject.appendChild(isPaid ? buildFullReport(report, full) : buildPreviewCard(report, store));
     }
  

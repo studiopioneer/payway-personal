@@ -170,7 +170,7 @@ add_action( 'wp_enqueue_scripts', function () {
         plugin_dir_url( __FILE__ ) . 'assets/audit-ui-inject.js',
         [], '2.0', true
     );
-    wp_localize_script( 'payway-audit-ui', 'paywayAuditCfg', [ 'nonce' => wp_create_nonce( 'wp_rest' ) ] );
+    wp_localize_script( 'payway-audit-ui', 'paywayAuditCfg', [ 'nonce' => wp_create_nonce( 'wp_rest' ), 'is_admin' => current_user_can( 'manage_options' ) ] );
     // fetch_interceptor: auto-inject WP REST nonce into payway API calls
     wp_add_inline_script(
         'payway-audit-ui',
@@ -213,7 +213,7 @@ function payway_inject_audit_history_loader_v2() {
 // -- Audit UI v3: direct script src inject (bypasses wp_enqueue handle) --
 add_action( 'wp_footer', function () {
     if ( strpos( $_SERVER['REQUEST_URI'] ?? '', '/audit' ) === false ) return;
-    $url = plugin_dir_url( __FILE__ ) . 'assets/audit-ui-inject.js?ver=4.6';
+    $url = plugin_dir_url( __FILE__ ) . 'assets/audit-ui-inject.js?ver=4.7';
     echo '<script src="' . esc_url( $url ) . '"></script>' . "\n";
 }, 5 );
 

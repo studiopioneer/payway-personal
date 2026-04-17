@@ -620,15 +620,27 @@
  
     var unlockInfo = (report.unlock_info) || (store && store.unlockInfo) || {};
     var balance    = Number(unlockInfo.balance || 0);
-    var btnText    = 'Открыть полный отчёт — $1.00';
-    if (balance > 0) {
+    var creditStatus = unlockInfo.credit_status || {};
+    var freeRemaining = creditStatus.free_remaining || 0;
+    var freeTotal = creditStatus.free_total || 3;
+ 
+    var btnText;
+    var btnDisabled = false;
+    if (balance >= 1) {
       btnText = 'Открыть полный отчёт — $1.00 (баланс: $' + balance.toFixed(2) + ')';
     } else if (unlockInfo.credit_available) {
-      btnText = 'Получить отчёт (бесплатно)';
+      btnText = 'Получить бесплатный отчёт (' + freeRemaining + ' из ' + freeTotal + ' осталось)';
+    } else if (creditStatus.daily_used) {
+      btnText = 'Следующий бесплатный отчёт — завтра';
+      btnDisabled = true;
+    } else {
+      btnText = 'Бесплатные отчёты исчерпаны — пополните баланс';
+      btnDisabled = true;
     }
  
     var errMsg = h('div', { class: 'pw-unlock-error', style: 'display:none' });
     var btn = h('button', { class: 'pw-unlock-btn' }, btnText);
+    if (btnDisabled) { btn.disabled = true; btn.style.opacity = '0.5'; btn.style.cursor = 'not-allowed'; }
  
     btn.addEventListener('click', function () {
       btn.disabled = true;

@@ -1,0 +1,1 @@
+import{v as r,r as t}from"../index-Daqnjabb.js";const v=r("toast",()=>{const s=t(""),e=t("success");function o(c,u="success"){s.value=c,e.value=u}function a(){s.value="",e.value="success"}return{message:s,severity:e,showToast:o,clearToast:a}});export{v as u};

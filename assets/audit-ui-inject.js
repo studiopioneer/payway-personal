@@ -479,7 +479,7 @@
  
     var hdr = h('div', { class: 'pw-card-header' });
     hdr.appendChild(h('div', { class: 'pw-card-title' }, 'Полный отчёт с рекомендациями'));
-    hdr.innerHTML += '<div style="font-size:12px;color:#aaa">Стоимость: <b style="color:#E8192C">$2.00</b></div>';
+    hdr.innerHTML += '<div style="font-size:12px;color:#aaa">Стоимость: <b style="color:#E8192C">$1.00</b></div>';
     card.appendChild(hdr);
  
     var body = h('div', { class: 'pw-card-body' });
@@ -508,9 +508,9 @@
  
     var unlockInfo = (report.unlock_info) || (store && store.unlockInfo) || {};
     var balance    = Number(unlockInfo.balance || 0);
-    var btnText    = 'Открыть полный отчёт — $2.00';
+    var btnText    = 'Открыть полный отчёт — $1.00';
     if (balance > 0) {
-      btnText = 'Открыть полный отчёт — $2.00 (баланс: $' + balance.toFixed(2) + ')';
+      btnText = 'Открыть полный отчёт — $1.00 (баланс: $' + balance.toFixed(2) + ')';
     } else if (unlockInfo.credit_available) {
       btnText = 'Получить отчёт (бесплатно)';
     }
@@ -582,7 +582,17 @@
     if (c.detail) info.appendChild(h('div', { class: 'pw-cr-desc' }, c.detail));
     // Sprint 3: add explanation for fail/warn criteria
     if (status !== 'ok') {
-      var key = c.key || c.id || '';
+      var key = c.key || c.id || c.criterion_key || '';
+      // Fallback: определить ключ по name если key пустой
+      if (!key) {
+        var nameLower = (c.name || '').toLowerCase();
+        if (nameLower.indexOf('возраст') !== -1 || nameLower.indexOf('age') !== -1) key = 'age';
+        else if (nameLower.indexOf('верифик') !== -1 || nameLower.indexOf('uploads') !== -1) key = 'longUploadsStatus';
+        else if (nameLower.indexOf('дет') !== -1 || nameLower.indexOf('kids') !== -1) key = 'madeForKids';
+        else if (nameLower.indexOf('регуляр') !== -1 || nameLower.indexOf('публикац') !== -1) key = 'regularity';
+        else if (nameLower.indexOf('видео') !== -1 || nameLower.indexOf('video') !== -1) key = 'videoCount';
+        else if (nameLower.indexOf('подписчик') !== -1 || nameLower.indexOf('subscriber') !== -1) key = 'subscriberVisibility';
+      }
       var explEntry = CRITERION_EXPLANATIONS[key];
       if (explEntry && typeof explEntry[status] === 'function') {
         var explText = explEntry[status](channelMetrics || null);
@@ -672,11 +682,17 @@
           if (rec.title) body.appendChild(h('div', { class: 'pw-rec-title' }, rec.title));
           body.appendChild(h('div', { class: 'pw-rec-text' }, rec.text || rec.description || ''));
           if (rec.tag) {
-            var tagCls = 'pw-rec-tag';
-            var tagLower = (rec.tag || '').toLowerCase();
-            if (tagLower === 'важно' || tagLower === 'important') tagCls += ' important';
-            else if (tagLower !== 'критично' && tagLower !== 'critical') tagCls += ' recommended';
-            body.appendChild(h('span', { class: tagCls }, rec.tag));
+            var TAG_MAP = {
+              'critical': { label: 'Критично', cls: '' },
+              'критично': { label: 'Критично', cls: '' },
+              'important': { label: 'Важно', cls: ' important' },
+              'важно': { label: 'Важно', cls: ' important' },
+              'recommended': { label: 'Рекомендуется', cls: ' recommended' },
+              'рекомендуется': { label: 'Рекомендуется', cls: ' recommended' },
+            };
+            var tagKey = (rec.tag || '').toLowerCase().trim();
+            var tagEntry = TAG_MAP[tagKey] || { label: rec.tag, cls: ' recommended' };
+            body.appendChild(h('span', { class: 'pw-rec-tag' + tagEntry.cls }, tagEntry.label));
           }
         } else {
           // String (old format) — title = first 60 chars
@@ -825,14 +841,29 @@
     // —— Получаем данные по каждому блоку ——
     var criteria = (full && Array.isArray(full.block1_criteria) ? full.block1_criteria : null);
     var channelMetrics = (full && full.channel_metrics) || {};
-    // Sprint 3: deduplicate block2 — filter AI signals that duplicate PHP signals
+    // Sprint 3→6.1: deduplicate block2 — filter AI signals that duplicate PHP signals
     var phpSigTypes = (full && Array.isArray(full.php_signals) ? full.php_signals : []).map(function (s) { return s.type; }).filter(Boolean);
+    // Нормализованные ключи PHP-сигналов для сравнения по тексту
+    var phpNormKeys = (full && Array.isArray(full.php_signals) ? full.php_signals : [])
+      .map(function (s) {
+        return (s.title || '').toLowerCase().replace(/\s+/g, ' ').trim().substring(0, 40);
+      }).filter(Boolean);
     var rawB2 = mergeB2Signals(full);
-    var b2Sigs = rawB2.filter(function (s) {
-      // Keep PHP-origin signals; filter AI signals whose issue_type matches a PHP type
+    // Первые N элементов — это PHP-сигналы, остальные — AI
+    var phpCount = (full && Array.isArray(full.php_signals) ? full.php_signals : []).length;
+    var phpB2 = rawB2.slice(0, phpCount);  // PHP-сигналы — показывать всегда
+    var aiB2  = rawB2.slice(phpCount);     // AI-сигналы — фильтровать
+    var aiB2Filtered = aiB2.filter(function (s) {
+      // 1. Фильтр по issue_type
       if (s.issue_type && phpSigTypes.indexOf(s.issue_type) !== -1) return false;
+      // 2. Фильтр по схожести заголовка с PHP-сигналами (защита от дублей без issue_type)
+      var aiKey = (s.title || '').toLowerCase().replace(/\s+/g, ' ').trim().substring(0, 40);
+      for (var ki = 0; ki < phpNormKeys.length; ki++) {
+        if (phpNormKeys[ki].length > 5 && aiKey.indexOf(phpNormKeys[ki].substring(0,20)) !== -1) return false;
+      }
       return true;
     });
+    var b2Sigs = phpB2.concat(aiB2Filtered);
     var b3Sigs   = (full && Array.isArray(full.block3_signals) ? full.block3_signals : null);
     var recs     = (full && Array.isArray(full.recommendations_for_user) ? full.recommendations_for_user : null);
     var summaryMod = (full && full.summary_for_moderator) || report.summary || null;

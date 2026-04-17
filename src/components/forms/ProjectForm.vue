@@ -14,7 +14,7 @@
               name="url"
               v-model="form.url"
               :class="{ 'p-invalid': errors.url }"
-              placeholder="Пример: ваша-ссылка.ру"
+              placeholder="Пример: https://www.youtube.com/@MrBeastGaming"
               required
               @input="validate('url', form.url)"
             />
@@ -36,7 +36,7 @@
               @input="e => validate('amount', e.value)"
             />
             <small v-if="errors.amount" class="p-error block">{{ errors.amount }}</small>
-            <small class="p-text-secondary">Была ли монетизация этого проекта? Если да, какой примерно был оборот в месяц (в долларах).</small>
+            <small class="p-text-secondary">Была ли монетизация этого проекта? Если да, какой примерно был оборот в месяц (в USD). Если монетизации еще не было, пишите 1.</small>
           </div>
           <div class="field flex flex-column gap-2">
             <label for="contacts">Укажите, как с вами можно связаться? (обязательно)</label>
@@ -67,7 +67,7 @@
               @input="validate('count_users', form.count_users)"
             />
             <small v-if="errors.count_users" class="p-error block">{{ errors.count_users }}</small>
-            <small class="p-text-secondary">Приблизительное количество ежемесячных пользователей.</small>
+            <small class="p-text-secondary">Количество подписчиков для YouTube и Apps. Трафик в месяц для сайтов.</small>
           </div>
           <div class="field flex flex-column gap-2">
             <label for="comments">Комментарий</label>
@@ -77,7 +77,7 @@
               name="comments"
               v-model="form.comments"
               :class="{ 'p-invalid': errors.comments }"
-              placeholder="Дополнительная информация о проекте"
+              placeholder="Подробно расскажите о своем проекте, о действующих или прошлых предупреждениях, ваших планах. Это поможет модератору."
               :autoResize="true"
               rows="5"
               @input="validate('comments', form.comments)"
@@ -86,16 +86,25 @@
           </div>
         </div>
       </div>
-      <Button
-        type="submit"
-        label="Отправить проект на проверку"
-        icon="pi pi-send"
-        class="mt-3 w-15rem bg-blue-500 hover:bg-blue-600 border-blue-600 hover:border-blue-700"
-      />
+      <div class="flex align-items-center gap-3 mt-3">
+        <Button
+          type="submit"
+          label="Отправить проект на проверку"
+          icon="pi pi-send"
+          class="w-15rem bg-blue-500 hover:bg-blue-600 border-blue-600 hover:border-blue-700"
+        />
+        <Button
+          type="button"
+          label="Аудит YouTube канала"
+          icon="pi pi-search"
+          class="w-15rem p-button-outlined"
+          @click="router.push('/audit')"
+        />
+      </div>
     </form>
   </div>
 </template>
-
+ 
 <script setup>
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
@@ -105,10 +114,10 @@ import Textarea from 'primevue/textarea'
 import Button from 'primevue/button'
 import api from '@/api/index.js'
 import { useToastStore } from '@/stores/toast.js'
-
+ 
 const router = useRouter()
 const toastStore = useToastStore()
-
+ 
 const form = reactive({
   url: '',
   amount: '',
@@ -116,9 +125,9 @@ const form = reactive({
   comments: '',
   contacts: ''
 })
-
+ 
 const errors = reactive({})
-
+ 
 function validateField(field, value) {
   let error = ''
   if (value == null) value = ''
@@ -147,11 +156,11 @@ function validateField(field, value) {
   }
   return error
 }
-
+ 
 function validate(field, value) {
   errors[field] = validateField(field, value)
 }
-
+ 
 async function handleSubmit() {
   const validationErrors = {}
   Object.keys(form).forEach(field => {

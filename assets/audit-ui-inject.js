@@ -604,7 +604,7 @@
   }
  
   // —— Preview-карточка (не оплачено) ———————————————————————————————————————————————————————————
-  function buildPreviewCard(report, store) {
+  function buildPreviewCard(report, store, apiData) {
     var card = h('div', { class: 'pw-card' });
  
     var hdr = h('div', { class: 'pw-card-header' });
@@ -614,8 +614,8 @@
  
     var body = h('div', { class: 'pw-card-body' });
  
-    // Metrics grid from store.preview
-    var preview = store && (store.preview || store.previewData || null);
+    // Metrics grid from store.preview or apiData.preview
+    var preview = (apiData && apiData.preview) || (store && (store.preview || store.previewData || null));
     var grid = buildMetricsGrid(preview);
     if (grid) body.appendChild(grid);
  
@@ -636,7 +636,8 @@
     var gate     = h('div', { class: 'pw-blur-gate' });
     var gateText = h('div', { class: 'pw-blur-gate-text' }, 'Детальный разбор и рекомендации скрыты');
  
-    var unlockInfo = (report.unlock_info) || (store && store.unlockInfo) || {};
+    // v4.8: unlock_info — ищем в apiData (прямой fetch), report, store
+    var unlockInfo = (apiData && apiData.unlock_info) || (report.unlock_info) || (store && store.unlockInfo) || {};
     var balance    = Number(unlockInfo.balance || 0);
     var creditStatus = unlockInfo.credit_status || {};
     var freeRemaining = creditStatus.free_remaining || 0;
@@ -1412,19 +1413,20 @@
     // 2. Три блока-карточки
     inject.appendChild(buildBlocksRow(report));
  
-    var hasApiData = _apiData && _apiData.full;
+    var hasApiData = !!_apiData;
     var apiFailed  = _apiData && _apiData._error;
     // Используем URL ID как fallback (store.auditId может быть от предыдущего аудита)
     var fetchId = getAuditIdFromUrl() || store.auditId || 0;
-    if (isPaid && !full && !hasApiData && !apiFailed && fetchId) {
-      // Данные ещё не загружены — fetches API и перерендерит
-      inject.appendChild(buildPreviewCard(report, store));
+    if (!hasApiData && !apiFailed && fetchId) {
+      // v4.8: всегда fetch API — нужен unlock_info для кнопки (store.unlockInfo = null)
+      inject.appendChild(buildPreviewCard(report, store, null));
       fetchAuditFull(fetchId, function (apiData) {
         renderReport(store, apiData || {});
       });
+    } else if (isPaid) {
+      inject.appendChild(full ? buildFullReport(report, full) : buildPreviewCard(report, store, _apiData));
     } else {
-      // Если оплачен — показываем полный отчёт (даже если full=null, buildFullReport использует report)
-      inject.appendChild(isPaid ? buildFullReport(report, full) : buildPreviewCard(report, store));
+      inject.appendChild(buildPreviewCard(report, store, _apiData));
     }
  
     // Скрываем оригинальные Vue-секции

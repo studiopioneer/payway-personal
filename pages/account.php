@@ -28,6 +28,7 @@ $css_urls = ( $css_files && count( $css_files ) )  ? array_map( function( $f ) u
     <?php foreach ( $css_urls as $css_url ) : ?>
     <link rel="stylesheet" crossorigin href="<?php echo esc_url( $css_url ); ?>">
     <?php endforeach; ?>
+<style>.hover\:surface-hover:hover{background-color:var(--p-surface-50,#f8fafc)!important;transition:background .15s}</style>
 </head>
 <body>
 <div id="root"></div>

@@ -167,6 +167,8 @@
       '.pw-stat-val.warn{color:#dc2626}',
       '.pw-stat-hint{font-size:11px;margin-top:3px;color:#aaa}',
       '.pw-stat-hint.warn{color:#dc2626}',
+      '.pw-stat-val.good{color:#16a34a}',
+      '.pw-stat-hint.good{color:#16a34a}',
       /* Sprint 3: criterion explanations */
       '.pw-cr-explain{font-size:11px;color:#555;margin-top:5px;padding:5px 9px;background:#f9f9f9;border-radius:5px;border-left:2px solid #e8e8e8;line-height:1.5}',
       /* Sprint 3: content rules (block 3) */
@@ -398,23 +400,27 @@
     var er = Number(cm.avg_er || 0);
     var vpm = Number(cm.videos_per_month || 0);
     var erWarn = er < 1.5;
+    var erGood = er >= 2.0;
  
     // Get metric explanations from full data
     var metricExpl = (full && full.metric_explanations) || {};
-    var erHint = metricExpl.er || (erWarn ? 'Норма для ниши: 2–5%' : '');
+    var erHint = metricExpl.er ||
+      (erWarn ? 'Низкий. Норма для ниши: 2–5%' :
+       erGood ? 'В норме (2–5%)' : 'Пограничное значение');
  
-    function statCard(label, value, hint, warn) {
+    function statCard(label, value, hint, warn, good) {
       var card = h('div', { class: 'pw-stat' });
       card.appendChild(h('div', { class: 'pw-stat-label' }, label));
-      card.appendChild(h('div', { class: 'pw-stat-val' + (warn ? ' warn' : '') }, value));
-      if (hint) card.appendChild(h('div', { class: 'pw-stat-hint' + (warn ? ' warn' : '') }, hint));
+      var valCls = 'pw-stat-val' + (warn ? ' warn' : good ? ' good' : '');
+      card.appendChild(h('div', { class: valCls }, value));
+      if (hint) card.appendChild(h('div', { class: 'pw-stat-hint' + (warn ? ' warn' : good ? ' good' : '') }, hint));
       return card;
     }
  
-    statsGrid.appendChild(statCard('Подписчики', formatNum(subs), '', false));
-    statsGrid.appendChild(statCard('Просмотры', formatNum(views), '', false));
-    statsGrid.appendChild(statCard('ER', er.toFixed(2) + '%', erHint, erWarn));
-    statsGrid.appendChild(statCard('Видео/мес', vpm.toFixed(1), '', false));
+    statsGrid.appendChild(statCard('Подписчики', formatNum(subs), '', false, false));
+    statsGrid.appendChild(statCard('Просмотры', formatNum(views), '', false, false));
+    statsGrid.appendChild(statCard('ER', er.toFixed(2) + '%', erHint, erWarn, erGood));
+    statsGrid.appendChild(statCard('Видео/мес', vpm.toFixed(1), '', false, false));
  
     el.appendChild(statsGrid);
     return el;
@@ -786,7 +792,11 @@
       var rowClass = (er < 0.5 && issues.indexOf('reused') !== -1) ? 'pw-vr-err' : er < 1.5 ? 'pw-vr-warn' : '';
  
       var tr = h('tr', rowClass ? { class: rowClass } : {});
-      tr.appendChild(h('td', { style: 'color:#1a1a1a' }, v.title || ''));
+      // Sprint 6.2.2: обрезать хеш-теги, полное название в тултипе
+      var titleDisplay = (v.title || '');
+      var hashIdx = titleDisplay.indexOf(' #');
+      if (hashIdx > 10) titleDisplay = titleDisplay.substring(0, hashIdx);
+      tr.appendChild(h('td', { style: 'color:#1a1a1a', title: v.title || '' }, titleDisplay));
       tr.appendChild(h('td', { style: 'text-align:right;color:#555' }, v.view_count_fmt || String(v.view_count || 0)));
       tr.appendChild(h('td', { style: 'text-align:right;color:#555' }, String(v.like_count || 0)));
  
@@ -955,9 +965,36 @@
         } else {
           panel.appendChild(h('p', { style: 'font-size:12px;color:#16a34a' }, 'Значимых рисков авторских прав не обнаружено'));
         }
-        // Sprint 3: content allowed / forbidden rules
-        var contentAllowed   = (full && Array.isArray(full.content_allowed))   ? full.content_allowed   : [];
-        var contentForbidden = (full && Array.isArray(full.content_forbidden)) ? full.content_forbidden : [];
+        // Sprint 3 + 6.2.1: content allowed / forbidden rules
+        var contentAllowed = (full && Array.isArray(full.content_allowed) && full.content_allowed.length)
+          ? full.content_allowed
+          : [];
+        var contentForbidden = (full && Array.isArray(full.content_forbidden) && full.content_forbidden.length)
+          ? full.content_forbidden
+          : [];
+ 
+        // Фоллбэк: если AI не вернул content_allowed, но есть сигналы авторских прав —
+        // добавляем базовые разрешения для кино/film-контента
+        if (!contentAllowed.length && b3Sigs && b3Sigs.length) {
+          var hasBrandSig = b3Sigs.some(function(s) {
+            return (s.title||'').toLowerCase().indexOf('бренд') !== -1 ||
+                   (s.title||'').toLowerCase().indexOf('фильм') !== -1;
+          });
+          if (hasBrandSig) {
+            contentAllowed = [
+              'Собственный видеообзор или анализ фильма — без вставок оригинала',
+              'Упоминание названий и фактов из публичных источников',
+              'Короткие фрагменты (< 3 сек) для критики или комментирования',
+            ];
+          }
+        }
+ 
+        // Убрать из contentForbidden пункты о длительности/конвейере — они про блок 2, не блок 3
+        contentForbidden = contentForbidden.filter(function(item) {
+          var lower = item.toLowerCase();
+          return lower.indexOf('длительност') === -1 && lower.indexOf('конвейер') === -1;
+        });
+ 
         if (contentAllowed.length || contentForbidden.length) {
           var rulesBox = h('div', { class: 'pw-content-rules' });
           rulesBox.appendChild(h('div', { class: 'pw-rules-title' }, 'Для данного типа контента:'));

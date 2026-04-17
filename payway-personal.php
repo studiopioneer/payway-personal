@@ -146,7 +146,8 @@ add_action( 'template_redirect', function () {
 add_action( 'wp_head', function () {
     if ( strpos( $_SERVER['REQUEST_URI'] ?? '', '/audit' ) === false ) return;
     $nonce = wp_create_nonce( 'wp_rest' );
-    echo '<script>window.paywayAuditCfg={nonce:"' . esc_js( $nonce ) . '"};' .
+    $is_admin = current_user_can( 'manage_options' ) ? 'true' : 'false';
+echo '<script>window.paywayAuditCfg={nonce:"' . esc_js( $nonce ) . '",is_admin:' . $is_admin . '};' .
          'window.__paywayFetchPatched||(window.__paywayFetchPatched=1,(function(){' .
          'var oF=window.fetch;window.fetch=function(u,o){' .
          'if(typeof u==="string"&&u.indexOf("/payway/v1/")>-1){' .
@@ -213,7 +214,7 @@ function payway_inject_audit_history_loader_v2() {
 // -- Audit UI v3: direct script src inject (bypasses wp_enqueue handle) --
 add_action( 'wp_footer', function () {
     if ( strpos( $_SERVER['REQUEST_URI'] ?? '', '/audit' ) === false ) return;
-    $url = plugin_dir_url( __FILE__ ) . 'assets/audit-ui-inject.js?ver=4.7';
+    $url = plugin_dir_url( __FILE__ ) . 'assets/audit-ui-inject.js?ver=4.8';
     echo '<script src="' . esc_url( $url ) . '"></script>' . "\n";
 }, 5 );
 

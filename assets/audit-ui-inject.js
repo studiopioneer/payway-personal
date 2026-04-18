@@ -1331,17 +1331,27 @@
       if (!s) return;
  
       // Sprint v4.7: показываем информативный прелоадер при processing/pending
-      if (s.status === 'processing' || s.status === 'pending') {
-        var auditResult = document.querySelector('.audit-result');
-        if (auditResult && !document.getElementById('pw-audit-loader')) {
-          var inject = document.getElementById('pw-audit-inject') || h('div', { id: 'pw-audit-inject' });
-          if (!document.getElementById('pw-audit-inject')) {
-            auditResult.parentElement.insertBefore(inject, auditResult);
+ if (s.status === 'processing' || s.status === 'pending') {
+        if (!document.getElementById('pw-audit-loader')) {
+          var auditResult = document.querySelector('.audit-result');
+          var contentArea = auditResult
+            ? auditResult.parentElement
+            : document.querySelector('[data-v-app] .col:not(.col-fixed) > div');
+          if (contentArea) {
+            var inject = document.getElementById('pw-audit-inject') || h('div', { id: 'pw-audit-inject' });
+            if (!document.getElementById('pw-audit-inject')) {
+              if (auditResult) {
+                contentArea.insertBefore(inject, auditResult);
+              } else {
+                contentArea.appendChild(inject);
+              }
+            }
+            inject.innerHTML = '';
+            inject.appendChild(buildLoadingScreen());
+            if (auditResult) auditResult.style.display = 'none';
           }
-          inject.innerHTML = '';
-          inject.appendChild(buildLoadingScreen());
-          auditResult.style.display = 'none';
         }
+      }
       }
  
       var currKey = (s.auditId || '') + '/' + (s.isPaid ? '1' : '0') + '/' + (s.status || '');

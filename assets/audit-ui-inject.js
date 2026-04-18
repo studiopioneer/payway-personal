@@ -1,5 +1,5 @@
 /**
- * PayWay Audit UI Injector v4.6-hotfix
+ * PayWay Audit UI Injector v4.7-loader
  * Читает данные из Pinia store и переестраивает DOM под прототип v2
  *
  * store.report  : { verdict, verdict_reason, summary, admission, demonetization, copyright }
@@ -549,7 +549,18 @@
         var id = (report.id != null ? report.id : null) || (st.auditId != null ? st.auditId : null);
         st.unlockReport(id).then(function () {
           var s = getStore();
-          if (s && s.report) renderReport(s);
+          if (s && s.report) {
+            // Sprint v4.7: если full уже есть — рендерим сразу, иначе грузим из API
+            if (s.full) {
+              renderReport(s);
+            } else {
+              var fetchId = getAuditIdFromUrl() || (s.auditId) || id;
+              _pwApiCache = {}; // сбросить кэш чтобы загрузить свежие данные
+              fetchAuditFull(fetchId, function(apiData) {
+                renderReport(s, apiData || {});
+              });
+            }
+          }
         }).catch(function (err) {
           btn.disabled = false;
           btn.textContent = btnText;
@@ -1070,6 +1081,99 @@
     return wrap;
   }
  
+  // —— Sprint v4.7: Информативный прелоадер ——————————————————————————————————————————————————
+  function buildLoadingScreen() {
+    var el = h('div', { id: 'pw-audit-loader', style: 'padding:24px' });
+ 
+    // Заголовок
+    el.appendChild(h('div', { style: 'font-size:16px;font-weight:600;color:#1a1a1a;margin-bottom:4px' },
+      'Анализируем ваш канал...'));
+    el.appendChild(h('div', { style: 'font-size:13px;color:#aaa;margin-bottom:20px' },
+      'Это займёт 1–2 минуты. Не закрывайте страницу.'));
+ 
+    // Прогресс-бар
+    var progressWrap = h('div', { style: 'background:#f0f0f0;border-radius:4px;height:4px;margin-bottom:24px;overflow:hidden' });
+    var progressBar = h('div', { id: 'pw-progress-bar', style: 'height:4px;background:#E8192C;border-radius:4px;width:5%;transition:width 0.8s ease' });
+    progressWrap.appendChild(progressBar);
+    el.appendChild(progressWrap);
+ 
+    // Чек-лист шагов
+    var STEPS = [
+      { id: 'step1', label: 'Получаем данные канала из YouTube API', time: 3 },
+      { id: 'step2', label: 'Загружаем последние 20 видео с метриками', time: 6 },
+      { id: 'step3', label: 'Вычисляем ER, частоту публикаций, длительность', time: 10 },
+      { id: 'step4', label: 'Анализируем сигналы reused-контента', time: 15 },
+      { id: 'step5', label: 'Проверяем критерии допуска к монетизации AdSense', time: 20 },
+      { id: 'step6', label: 'Отправляем данные на анализ AI (GPT-4o)', time: 25 },
+      { id: 'step7', label: 'AI оценивает риски демонетизации', time: 45 },
+      { id: 'step8', label: 'AI проверяет риски авторских прав', time: 60 },
+      { id: 'step9', label: 'Формируем рекомендации для вашего канала', time: 75 },
+      { id: 'step10', label: 'Генерируем чеклист для модератора', time: 85 },
+      { id: 'step11', label: 'Сохраняем отчёт', time: 90 },
+    ];
+ 
+    // Описание что пользователь получит
+    var infoBox = h('div', { style: 'background:#f9fafb;border:1px solid #f0f0f0;border-radius:8px;padding:12px 14px;margin-bottom:16px' });
+    infoBox.appendChild(h('div', { style: 'font-size:11px;font-weight:600;color:#bbb;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px' }, 'Что войдёт в отчёт'));
+    var features = [
+      '✓ Проверка 6 критериев допуска к монетизации',
+      '✓ Анализ рисков демонетизации (reused-контент, ER, частота)',
+      '✓ Проверка рисков авторских прав и страйков',
+      '✓ Таблица метрик по каждому из 20 видео',
+      '✓ Персональные рекомендации с конкретными числами',
+      '✓ Чеклист для ручной проверки модератором',
+    ];
+    features.forEach(function(f) {
+      infoBox.appendChild(h('div', { style: 'font-size:12px;color:#555;padding:2px 0' }, f));
+    });
+    el.appendChild(infoBox);
+ 
+    var stepsList = h('div', { style: 'display:flex;flex-direction:column;gap:6px' });
+    STEPS.forEach(function(step) {
+      var row = h('div', { id: step.id, style: 'display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:7px;background:#f9f9f9;opacity:.4;transition:opacity .4s' });
+      var icon = h('div', { class: 'pw-step-icon', style: 'width:18px;height:18px;border-radius:50%;border:2px solid #e8e8e8;flex-shrink:0;display:flex;align-items:center;justify-content:center' });
+      row.appendChild(icon);
+      row.appendChild(h('div', { style: 'font-size:12px;color:#555' }, step.label));
+      stepsList.appendChild(row);
+    });
+    el.appendChild(stepsList);
+ 
+    // Анимация шагов по таймеру
+    var startTime = Date.now();
+    var totalDuration = 95;
+    var stepTimer = setInterval(function() {
+      var elapsed = (Date.now() - startTime) / 1000;
+      var progress = Math.min(95, Math.round((elapsed / totalDuration) * 95));
+      var bar = document.getElementById('pw-progress-bar');
+      if (bar) bar.style.width = progress + '%';
+ 
+      STEPS.forEach(function(step) {
+        var row = document.getElementById(step.id);
+        if (!row) return;
+        if (elapsed >= step.time) {
+          row.style.opacity = '1';
+          var icon = row.querySelector('.pw-step-icon');
+          if (icon && icon.innerHTML === '') {
+            icon.style.background = '#E8192C';
+            icon.style.borderColor = '#E8192C';
+            icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" width="10" height="10"><path d="M20 6L9 17l-5-5"/></svg>';
+          }
+        }
+      });
+ 
+      // Если store уже done — убираем таймер
+      var s = getStore();
+      if (s && s.status === 'done') {
+        clearInterval(stepTimer);
+        var bar2 = document.getElementById('pw-progress-bar');
+        if (bar2) bar2.style.width = '100%';
+      }
+    }, 500);
+ 
+    el._stepTimer = stepTimer;
+    return el;
+  }
+ 
   // —— Главная функция рендера ——————————————————————————————————————————————————————————————
   function removeInject() {
     var el = document.getElementById('pw-audit-inject');
@@ -1226,13 +1330,27 @@
       var s = getStore();
       if (!s) return;
  
+      // Sprint v4.7: показываем информативный прелоадер при processing/pending
+      if (s.status === 'processing' || s.status === 'pending') {
+        var auditResult = document.querySelector('.audit-result');
+        if (auditResult && !document.getElementById('pw-audit-loader')) {
+          var inject = document.getElementById('pw-audit-inject') || h('div', { id: 'pw-audit-inject' });
+          if (!document.getElementById('pw-audit-inject')) {
+            auditResult.parentElement.insertBefore(inject, auditResult);
+          }
+          inject.innerHTML = '';
+          inject.appendChild(buildLoadingScreen());
+          auditResult.style.display = 'none';
+        }
+      }
+ 
       var currKey = (s.auditId || '') + '/' + (s.isPaid ? '1' : '0') + '/' + (s.status || '');
  
       if (currKey !== lastKey) {
         lastKey = currKey;
         if (s.status === 'done' && s.report) {
           renderReport(s);
-        } else {
+        } else if (s.status !== 'processing' && s.status !== 'pending') {
           removeInject();
         }
       }

@@ -1,5 +1,5 @@
 /**
- * PayWay Audit UI Injector v4.5-sprint5
+ * PayWay Audit UI Injector v4.6-hotfix
  * Читает данные из Pinia store и переестраивает DOM под прототип v2
  *
  * store.report  : { verdict, verdict_reason, summary, admission, demonetization, copyright }
@@ -336,7 +336,8 @@
  
   // —— Sprint 2: Channel Card ————————————————————————————————————
   function buildChannelCard(cm, full) {
-    if (!cm) return null;
+    // FIX sprint 6.4: если channel_title нет — данные ещё не пришли, не рендерить карточку
+    if (!cm || !cm.channel_title) return null;
  
     var el = h('div', { class: 'pw-ch-card' });
  
@@ -403,10 +404,15 @@
     var erGood = er >= 2.0;
  
     // Get metric explanations from full data
+    // Sprint 6.4: доверять AI только если он указал конкретные проценты
     var metricExpl = (full && full.metric_explanations) || {};
-    var erHint = metricExpl.er ||
-      (erWarn ? 'Низкий. Норма для ниши: 2–5%' :
-       erGood ? 'В норме (2–5%)' : 'Пограничное значение');
+    var aiErExpl = (metricExpl && metricExpl.er) || '';
+    var aiHasNorm = /\d+[–\-]?\d*\s*%/.test(aiErExpl); // содержит «X%» или «X–Y%»
+    var erHint = aiHasNorm
+      ? aiErExpl
+      : (erWarn ? 'Низкий. Норма для YouTube: 2–5%'
+        : erGood ? 'В норме (норма YouTube: 2–5%)'
+        : 'Пограничное значение (норма YouTube: 2–5%)');
  
     function statCard(label, value, hint, warn, good) {
       var card = h('div', { class: 'pw-stat' });
@@ -423,6 +429,16 @@
     statsGrid.appendChild(statCard('Видео/мес', vpm.toFixed(1), '', false, false));
  
     el.appendChild(statsGrid);
+    return el;
+  }
+ 
+  // —— Sprint 6.4: placeholder карточки канала пока данные загружаются ——————————————————————————
+  function buildChannelCardPlaceholder() {
+    var el = h('div', { class: 'pw-ch-card', style: 'opacity:.5' });
+    var header = h('div', { class: 'pw-ch-header' });
+    header.appendChild(h('div', { class: 'pw-ch-av-ph' }, '...'));
+    header.appendChild(h('div', { class: 'pw-ch-name', style: 'color:#aaa' }, 'Загрузка данных канала...'));
+    el.appendChild(header);
     return el;
   }
  
@@ -973,18 +989,27 @@
           ? full.content_forbidden
           : [];
  
-        // Фоллбэк: если AI не вернул content_allowed, но есть сигналы авторских прав —
-        // добавляем базовые разрешения для кино/film-контента
+        // Sprint 6.4: фоллбэк content_allowed по нише канала (topic_categories)
         if (!contentAllowed.length && b3Sigs && b3Sigs.length) {
-          var hasBrandSig = b3Sigs.some(function(s) {
-            return (s.title||'').toLowerCase().indexOf('бренд') !== -1 ||
-                   (s.title||'').toLowerCase().indexOf('фильм') !== -1;
-          });
-          if (hasBrandSig) {
+          var niches = (channelMetrics.topic_categories || []).join(' ').toLowerCase();
+          if (niches.indexOf('gaming') !== -1 || niches.indexOf('game') !== -1) {
             contentAllowed = [
-              'Собственный видеообзор или анализ фильма — без вставок оригинала',
+              'Запись собственного геймплея с авторскими комментариями',
+              'Туториалы, гайды, обзоры механик — без фрагментов чужих видео',
+              'Короткие фрагменты трейлеров (< 15 сек) для обзора',
+            ];
+          } else if (niches.indexOf('film') !== -1 || niches.indexOf('entertain') !== -1) {
+            contentAllowed = [
+              'Собственный видеообзор или анализ без вставок оригинала',
               'Упоминание названий и фактов из публичных источников',
               'Короткие фрагменты (< 3 сек) для критики или комментирования',
+            ];
+          } else {
+            // Универсальный фоллбэк для всех остальных ниш (ремонт, кулинария, образование и т.д.)
+            contentAllowed = [
+              'Собственный контент с авторским голосом или комментарием',
+              'Упоминание названий брендов в контексте обзора или инструкции',
+              'Визуальная демонстрация продуктов, купленных или предоставленных для обзора',
             ];
           }
         }
@@ -1134,14 +1159,22 @@
     var full    = (_apiData && _apiData.full)    || store.full    || store.reportFull || null;
     var preview = (_apiData && _apiData.preview) || store.preview || null;
  
+    // Sprint 6.4: isPaid определяем раньше для placeholder логики
+    var isPaid = store.isPaid || (report && report.is_paid);
+ 
     // Sprint 2: Reject banner (before verdict)
     var channelMetrics = (full && full.channel_metrics) || (_apiData && _apiData.full && _apiData.full.channel_metrics) || {};
     var rejectBanner = buildRejectBanner(full, report);
     if (rejectBanner) inject.appendChild(rejectBanner);
  
-    // Sprint 2: Channel card
+    // Sprint 2 + 6.4: Channel card with placeholder fallback
     var chCard = buildChannelCard(channelMetrics, full);
-    if (chCard) inject.appendChild(chCard);
+    if (chCard) {
+      inject.appendChild(chCard);
+    } else if (isPaid) {
+      // Показать placeholder пока fetchAuditFull ещё не вернул данные
+      inject.appendChild(buildChannelCardPlaceholder());
+    }
  
     // 1. Вердикт
     inject.appendChild(buildVerdictBanner(report));
@@ -1150,7 +1183,6 @@
     inject.appendChild(buildBlocksRow(report));
  
     // 3. Основной контент
-    var isPaid = store.isPaid || (report && report.is_paid);
  
     var hasApiData = _apiData && _apiData.full;
     var apiFailed  = _apiData && _apiData._error;

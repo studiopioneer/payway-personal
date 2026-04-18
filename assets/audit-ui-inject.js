@@ -1332,15 +1332,31 @@
  
       // Sprint v4.7: показываем информативный прелоадер при processing/pending
       if (s.status === 'processing' || s.status === 'pending') {
-        var auditResult = document.querySelector('.audit-result');
-        if (auditResult && !document.getElementById('pw-audit-loader')) {
-          var inject = document.getElementById('pw-audit-inject') || h('div', { id: 'pw-audit-inject' });
-          if (!document.getElementById('pw-audit-inject')) {
-            auditResult.parentElement.insertBefore(inject, auditResult);
+        console.log('[PW-LOADER] status=', s.status, 'loaderExists=', !!document.getElementById('pw-audit-loader'));
+        if (!document.getElementById('pw-audit-loader')) {
+          // Ищем контейнер: .audit-result или основной контент-блок Vue
+          var auditResult = document.querySelector('.audit-result');
+          var contentArea = auditResult
+            ? auditResult.parentElement
+            : document.querySelector('[data-v-app] .col:not(.col-fixed) > div');
+          console.log('[PW-LOADER] auditResult=', !!auditResult, 'contentArea=', !!contentArea);
+          if (contentArea) {
+            var inject = document.getElementById('pw-audit-inject') || h('div', { id: 'pw-audit-inject' });
+            if (!document.getElementById('pw-audit-inject')) {
+              if (auditResult) {
+                contentArea.insertBefore(inject, auditResult);
+              } else {
+                contentArea.appendChild(inject);
+              }
+            }
+            inject.innerHTML = '';
+            inject.appendChild(buildLoadingScreen());
+            console.log('[PW-LOADER] INSERTED! inject in DOM=', !!document.getElementById('pw-audit-inject'), 'loader in DOM=', !!document.getElementById('pw-audit-loader'));
+            if (auditResult) auditResult.style.display = 'none';
+            // Скрыть Vue-спиннер/прелоадер если есть
+            var vueSpinner = contentArea.querySelector('.p-progress-spinner, [class*="spinner"], [class*="loading"]');
+            if (vueSpinner) vueSpinner.style.display = 'none';
           }
-          inject.innerHTML = '';
-          inject.appendChild(buildLoadingScreen());
-          auditResult.style.display = 'none';
         }
       }
  

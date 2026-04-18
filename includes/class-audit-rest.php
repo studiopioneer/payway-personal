@@ -369,11 +369,12 @@ if ( ! current_user_can( 'manage_options' ) ) {
                 'block1_criteria'   => $preview['block1_criteria']    ?? [],
             ],
         'report'         => $_report_vue,
-'unlock_info'    => [
-    'balance'          => $balance,
-    'credit_available' => PW_Audit_Credit::check( $user_id )['allowed'],
-    'credit_status'    => PW_Audit_Credit::get_status( $user_id ),
-],
+            'unlock_info'    => [
+                'balance'          => $balance,
+                'credit_available' => $this->is_credit_available( $user_id, $balance ),
+                'credit_used'      => $balance == 0 && (bool) get_transient( 'payway_audit_credit_' . $user_id ),
+            ],
+        ];
  
         if ( $list_mode ) {
             return $response;

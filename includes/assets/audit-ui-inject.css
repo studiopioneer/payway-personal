@@ -1,0 +1,106 @@
+#pw-audit-inject{font-family:"Inter",system-ui,sans-serif;margin-bottom:16px}#pw-audit-inject *{box-sizing:border-box}/* Verdict */
+      .pw-verdict{border-radius:10px;padding:16px 18px;display:flex;align-items:flex-start;gap:12px;margin-bottom:12px}.pw-verdict-accept{background:#f0fdf4;border:1px solid #bbf7d0}.pw-verdict-reject{background:#fef2f2;border:1px solid #fecaca}.pw-verdict-manual{background:#fffbeb;border:1px solid #fde68a}.pw-v-icon{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}.pw-verdict-accept .pw-v-icon{background:#dcfce7}.pw-verdict-reject .pw-v-icon{background:#fee2e2}.pw-verdict-manual .pw-v-icon{background:#fef3c7}.pw-v-icon svg{width:16px;height:16px}.pw-verdict-accept .pw-v-icon svg{color:#16a34a}.pw-verdict-reject .pw-v-icon svg{color:#dc2626}.pw-verdict-manual .pw-v-icon svg{color:#d97706}.pw-v-title{font-size:14px;font-weight:600;margin-bottom:3px}.pw-verdict-accept .pw-v-title{color:#15803d}.pw-verdict-reject .pw-v-title{color:#b91c1c}.pw-verdict-manual .pw-v-title{color:#b45309}.pw-v-sub{font-size:12px;line-height:1.5}.pw-verdict-accept .pw-v-sub{color:#166534}.pw-verdict-reject .pw-v-sub{color:#991b1b}.pw-verdict-manual .pw-v-sub{color:#92400e}/* Blocks row */
+      .pw-blocks-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:12px}.pw-bcard{background:#fff;border:1px solid #e8e8e8;border-radius:10px;padding:13px 15px}.pw-bcard-label{font-size:10px;font-weight:600;color:#bbb;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}.pw-bcard-title{font-size:12px;font-weight:500;color:#1a1a1a;margin-bottom:8px}.pw-rbadge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:4px}.pw-rb-low,.pw-rb-ok{background:#f0fdf4;color:#16a34a}.pw-rb-medium,.pw-rb-med,.pw-rb-warn{background:#fffbeb;color:#d97706}.pw-rb-high,.pw-rb-fail{background:#fef2f2;color:#dc2626}.pw-rb-dot{width:6px;height:6px;border-radius:50%;background:currentColor}/* Card */
+      .pw-card{background:#fff;border:1px solid #e8e8e8;border-radius:10px;margin-bottom:12px;overflow:hidden}.pw-card-header{padding:14px 18px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}.pw-card-title{font-size:13px;font-weight:500;color:#1a1a1a}.pw-card-body{padding:16px 18px}/* Metrics grid */
+      .pw-metrics-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px}.pw-metric-item{background:#f9f9f9;border-radius:7px;padding:10px 12px}.pw-metric-label{font-size:10px;color:#bbb;margin-bottom:3px;font-weight:500;text-transform:uppercase;letter-spacing:.03em}.pw-metric-value{font-size:13px;font-weight:500;color:#1a1a1a}.pw-metric-value.pw-mv-warn{color:#dc2626}/* Blur gate */
+      .pw-blur-wrap{position:relative;border-radius:8px;overflow:hidden;margin-bottom:14px}.pw-blur-content{background:#f9f9f9;padding:14px 16px;font-size:12px;line-height:1.6;color:#555;filter:blur(3.5px);user-select:none;min-height:80px}.pw-blur-gate{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:rgba(249,249,249,.75)}.pw-blur-gate-text{font-size:12px;color:#888;text-align:center}.pw-unlock-btn{height:30px;padding:0 14px;border-radius:6px;border:none;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;background:#E8192C;color:#fff}.pw-unlock-btn:hover{opacity:.88}.pw-unlock-btn:disabled{opacity:.5;cursor:default}.pw-unlock-error{font-size:11px;color:#dc2626;text-align:center}/* Tabs */
+      .pw-tab-row{display:flex;border-bottom:1px solid #f0f0f0}.pw-tab{font-size:12px;padding:9px 14px;cursor:pointer;color:#aaa;border-bottom:2px solid transparent;font-weight:500;white-space:nowrap}.pw-tab.pw-tab-on{color:#E8192C;border-bottom-color:#E8192C}.pw-tab-panel{padding:16px 18px}/* Criteria list */
+      .pw-cr-list{display:flex;flex-direction:column}.pw-cr-row{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid #f5f5f5}.pw-cr-row:last-child{border-bottom:none}.pw-cr-dot{width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}.pw-cr-ok{background:#dcfce7}.pw-cr-ok svg{color:#16a34a}.pw-cr-fail{background:#fee2e2}.pw-cr-fail svg{color:#dc2626}.pw-cr-warn{background:#fef3c7}.pw-cr-warn svg{color:#d97706}.pw-cr-dot svg{width:9px;height:9px}.pw-cr-name{font-size:12px;font-weight:500;color:#1a1a1a}.pw-cr-desc{font-size:11px;color:#aaa;margin-top:1px;line-height:1.4}/* Risk rows */
+      .pw-risk-section-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#bbb;padding:10px 0 6px;display:flex;align-items:center;gap:6px}.pw-risk-row{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid #f7f7f7}.pw-risk-row:last-child{border-bottom:none}.pw-rl-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px}.pw-rl-high{background:#dc2626}.pw-rl-med{background:#d97706}.pw-rl-low{background:#16a34a}.pw-risk-title{font-size:12px;font-weight:500;color:#1a1a1a;margin-bottom:2px}.pw-risk-desc{font-size:11px;color:#888;line-height:1.5}.pw-risk-rec{font-size:11px;color:#555;margin-top:5px;padding:5px 9px;background:#f9f9f9;border-radius:5px;border-left:2px solid #e8e8e8;line-height:1.5}/* Reused box */
+      .pw-reused-box{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:13px 15px;margin-bottom:10px}.pw-reused-title{font-size:12px;font-weight:600;color:#991b1b;margin-bottom:8px;display:flex;align-items:center;gap:6px}.pw-signal-row{display:flex;align-items:flex-start;gap:8px;padding:5px 0;border-bottom:1px solid rgba(220,38,38,.1)}.pw-signal-row:last-child{border-bottom:none}.pw-sig-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:5px}.pw-sig-high{background:#dc2626}.pw-sig-med{background:#d97706}.pw-sig-low{background:#16a34a}.pw-sig-title{font-size:11px;font-weight:500;color:#7f1d1d}.pw-sig-val{font-size:11px;color:#991b1b;margin-top:1px}.pw-sig-rec{font-size:11px;color:#b91c1c;font-style:italic;margin-top:2px}/* Flag note */
+      .pw-flag-note{font-size:12px;color:#888;background:#fffbeb;border:1px solid #fde68a;border-radius:7px;padding:10px 13px;line-height:1.55;margin:0 16px 14px}.pw-flag-note strong{color:#92400e}/* Recommendations */
+      /* Sprint 5: recommendations redesign */
+      .pw-recs-section{padding:0 18px 16px}.pw-recs-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#bbb;padding:4px 0 10px}.pw-rec-list{display:flex;flex-direction:column;gap:10px}.pw-rec-item{display:flex;align-items:flex-start;gap:10px;padding:11px 13px;background:#f9fafb;border-radius:8px;border:1px solid #f0f0f0}.pw-rec-num{width:20px;height:20px;border-radius:50%;background:#E8192C;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:#fff;flex-shrink:0;margin-top:1px}.pw-rec-title{font-size:13px;font-weight:500;color:#1a1a1a;margin-bottom:3px}.pw-rec-text{font-size:12px;color:#555;line-height:1.5}.pw-rec-tag{font-size:10px;padding:1px 6px;border-radius:4px;background:#ffeaeb;color:#E8192C;font-weight:500;margin-top:5px;display:inline-block}.pw-rec-tag.important{background:#fffbeb;color:#d97706}.pw-rec-tag.recommended{background:#f0f0f0;color:#555}/* Sprint 5: moderator checklist */
+      .pw-mod-block{margin-top:16px}.pw-mod-summary{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px 14px;font-size:12px;color:#92400e;line-height:1.6;margin-bottom:12px}.pw-mod-summary strong{color:#78350f}.pw-checklist{display:flex;flex-direction:column;gap:6px}.pw-check-item{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:#555;padding:7px 10px;background:#f9fafb;border-radius:7px;line-height:1.5}.pw-check-num{width:18px;height:18px;border-radius:50%;background:#d97706;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:#fff;flex-shrink:0;margin-top:1px}/* Action row */
+      .pw-action-row{display:flex;gap:10px;flex-wrap:wrap;padding:0 16px 16px}.pw-btn{height:38px;padding:0 16px;border-radius:8px;border:none;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit}.pw-btn-red{background:#E8192C;color:#fff}.pw-btn-red:hover{opacity:.88}.pw-btn-ghost{background:#fff;border:1px solid #e8e8e8;color:#555}.pw-btn-ghost:hover{background:#fafafa}/* Reject banner */
+      .pw-reject-banner{background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:16px 18px;margin-bottom:16px}.pw-reject-title{font-size:14px;font-weight:600;color:#b91c1c;display:flex;align-items:center;gap:7px;margin-bottom:4px}.pw-reject-desc{font-size:13px;color:#991b1b;margin-bottom:10px;line-height:1.5}.pw-retry-pill{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #fca5a5;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:500;color:#991b1b}/* Channel card */
+      .pw-ch-card{background:#fff;border:1px solid #e8e8e8;border-radius:10px;padding:14px 18px;margin-bottom:16px}.pw-ch-header{display:flex;align-items:center;gap:12px;margin-bottom:14px}.pw-ch-avatar{width:48px;height:48px;border-radius:50%;object-fit:cover}.pw-ch-av-ph{width:48px;height:48px;border-radius:50%;background:#fce7f3;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;color:#9d174d;flex-shrink:0}.pw-ch-name{font-size:15px;font-weight:500;color:#1a1a1a}.pw-ch-sub{font-size:12px;color:#aaa;margin-top:2px}.pw-stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.pw-stat{background:#f9f9f9;border-radius:8px;padding:10px 12px}.pw-stat-label{font-size:10px;color:#aaa;font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px}.pw-stat-val{font-size:18px;font-weight:600;letter-spacing:-.3px}.pw-stat-val.warn{color:#dc2626}.pw-stat-hint{font-size:11px;margin-top:3px;color:#aaa}.pw-stat-hint.warn{color:#dc2626}/* Sprint 3: criterion explanations */
+      .pw-cr-explain{font-size:11px;color:#555;margin-top:5px;padding:5px 9px;background:#f9f9f9;border-radius:5px;border-left:2px solid #e8e8e8;line-height:1.5}/* Sprint 3: content rules (block 3) */
+      .pw-content-rules{margin-top:12px;padding:12px 14px;background:#f9fafb;border-radius:8px;border:1px solid #f0f0f0}.pw-rules-title{font-size:12px;font-weight:500;color:#1a1a1a;margin-bottom:8px}.pw-rule-ok,.pw-rule-no{display:flex;gap:8px;font-size:12px;padding:3px 0}.pw-rule-ok span{color:#16a34a;font-weight:600;flex-shrink:0}.pw-rule-no span{color:#dc2626;font-weight:600;flex-shrink:0}/* Sprint 4: video table */
+      .pw-video-table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}.pw-video-table th{font-size:10px;font-weight:600;color:#bbb;text-align:left;padding:0 6px 8px;border-bottom:1px solid #f0f0f0;text-transform:uppercase;letter-spacing:.04em}.pw-video-table td{padding:8px 6px;border-bottom:1px solid #f7f7f7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle}.pw-video-table tr:last-child td{border-bottom:none}.pw-vr-err td{background:#fef2f2}.pw-vr-warn td{background:#fffbeb}.pw-er-chip{font-size:10px;padding:2px 6px;border-radius:4px;font-weight:500}.pw-er-hi{background:#fef2f2;color:#dc2626}.pw-er-md{background:#fffbeb;color:#d97706}.pw-er-lo{background:#f0fdf4;color:#16a34a}.pw-issue-chip{font-size:10px;padding:2px 6px;border-radius:4px;background:#fef2f2;color:#dc2626;font-weight:500;margin-right:3px}.pw-table-note{font-size:11px;color:#aaa;margin-bottom:10px}.pw-table-legend{display:flex;gap:16px;margin-top:8px;font-size:11px;color:#aaa;flex-wrap:wrap}.pw-legend-sq{width:10px;height:10px;border-radius:2px;display:inline-block;margin-right:4px;vertical-align:middle}].join();
+    document.head.appendChild(style);
+  }
+ 
+  // —— SVG иконки ——————————————————————————————————————————————————————————————————————————————
+  var ICONS = {
+    check:   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>x:       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>warn:    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16" style="flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>check_v: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>};
+ 
+  // —— Вспомогательные функции —————————————————————————————————————————————————————————————————
+  function h(tagattrsinner) {
+    var el = document.createElement(tag);
+    if (attrs) Object.keys(attrs).forEach(function (k) { el.setAttribute(kattrs[k]); });
+    if (inner !== undefined) el.innerHTML = inner;
+    return el;
+  }
+ 
+  function riskLabel(risk) {
+    return ({ low: Низкийmedium: Среднийhigh: Высокийok: Пройденwarn: Вниманиеfail: Провал })[risk] || (risk || Нет данных);
+  }
+ 
+  function riskCls(risk) {
+    return pw-rbadge pw-rb- + (risk || low);
+  }
+ 
+  function dotCls(level) {
+    return pw-rl-dot  + ({ high: pw-rl-highmedium: pw-rl-medlow: pw-rl-lowok: pw-rl-lowwarn: pw-rl-medfail: pw-rl-high }[level] || pw-rl-low);
+  }
+ 
+  function badge(risk) {
+    return <span class=" + riskCls(risk) + "><span class="pw-rb-dot"></span> + riskLabel(risk) + </span>;
+  }
+ 
+  // —— Sprint 2: форматирование чисел ————————————————————————
+  function formatNum(n) {
+    n = Number(n) || 0;
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + M;
+    if (n >= 1000) return (n / 1000).toFixed(0) + k;
+    return n.toString();
+  }
+ 
+  // —— Pinia store ——————————————————————————————————————————————————————————————————————————————
+  function getStore() {
+    try {
+      var el = document.querySelector([data-v-app]);
+      if (!el || !el.__vue_app__) return null;
+      var pinia = el.__vue_app__.config.globalProperties.$pinia;
+      if (!pinia || !pinia._s) return null;
+      return pinia._s.get(audit);
+    } catch (e) { return null; }
+  }
+ 
+  // —— Вердикт: вфвести из рисков блоков если явно не задан —————————————————————————————————
+  function deriveVerdict(report) {
+    if (report.verdict) return report.verdict;
+    var b1 = (report.admission      && report.admission.risk)      || ok;
+    var b2 = (report.demonetization && report.demonetization.risk) || low;
+    var b3 = (report.copyright      && report.copyright.risk)      || low;
+    if (b1 === high || b1 === fail) return reject;
+    if (b2 === high || b3 === high || b2 === medium || b3 === medium) return manual;
+    return accept;
+  }
+ 
+  // —— Verdict Banner ———————————————————————————————————————————————————————————————————————————
+  function buildVerdictBanner(report) {
+    var v = deriveVerdict(report);
+    var reason = report.verdict_reason || report.summary || ;
+    var cfg = {
+      accept: { cls: pw-verdict-accepticon: ICONS.check_vtitle: Канал соответствует требованиям монетизации }reject: { cls: pw-verdict-rejecticon: ICONS.xtitle: Канал не соответствует требованиям }manual: { cls: pw-verdict-manualicon: ICONS.warntitle: Требует ручной проверки }}[v] || { cls: pw-verdict-manualicon: ICONS.warntitle: Требует ручной проверки };
+ 
+    var el   = h(div{ class: pw-verdict  + cfg.cls });
+    var icon = h(div{ class: pw-v-icon }cfg.icon);
+    var body = h(div);
+    body.appendChild(h(div{ class: pw-v-title }cfg.title));
+    if (reason) body.appendChild(h(div{ class: pw-v-sub }reason));
+    el.appendChild(icon);
+    el.appendChild(body);
+    return el;
+  }
+ 
+  // —— Sprint 2: Reject Banner ———————————————————————————————————
+  function buildRejectBanner(fullreport) {
+    // Show only for reject verdict or block1 fail
+    var verdict = (report && report.verdict) || (full && full.verdict) || ;
+    var b1status = (full && full.block1_status) || (report && report.block1_status) || ;
+    if (verdict !== reject && b1status !== fail) return null;
+ 
+    var criteria = (full && Array.isArray(full.block1_criteria)) ? full.block1_criteria : [

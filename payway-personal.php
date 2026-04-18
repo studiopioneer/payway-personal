@@ -140,13 +140,22 @@ add_action( 'template_redirect', function () {
 		}
 	}
 } );
+// ── Fresh nonce endpoint (обходит кеш страницы) ──────────────────────────────
+add_action( 'wp_ajax_payway_fresh_nonce', function () {
+    wp_send_json_success( [
+        'nonce'    => wp_create_nonce( 'wp_rest' ),
+        'is_admin' => current_user_can( 'manage_options' ),
+    ] );
+} );
+  
 // ── Audit UI v2: CSS + JS ──────────────────────────────────────
 
 // -- Audit nonce injection via wp_head (fetch interceptor) ----------------
 add_action( 'wp_head', function () {
     if ( strpos( $_SERVER['REQUEST_URI'] ?? '', '/audit' ) === false ) return;
     $nonce = wp_create_nonce( 'wp_rest' );
-    echo '<script>window.paywayAuditCfg={nonce:"' . esc_js( $nonce ) . '"};' .
+    $is_admin = current_user_can( 'manage_options' ) ? 'true' : 'false';
+echo '<script>window.paywayAuditCfg={nonce:"' . esc_js( $nonce ) . '",is_admin:' . $is_admin . '};' .
          'window.__paywayFetchPatched||(window.__paywayFetchPatched=1,(function(){' .
          'var oF=window.fetch;window.fetch=function(u,o){' .
          'if(typeof u==="string"&&u.indexOf("/payway/v1/")>-1){' .
@@ -170,7 +179,7 @@ add_action( 'wp_enqueue_scripts', function () {
         plugin_dir_url( __FILE__ ) . 'assets/audit-ui-inject.js',
         [], '2.0', true
     );
-    wp_localize_script( 'payway-audit-ui', 'paywayAuditCfg', [ 'nonce' => wp_create_nonce( 'wp_rest' ) ] );
+    wp_localize_script( 'payway-audit-ui', 'paywayAuditCfg', [ 'nonce' => wp_create_nonce( 'wp_rest' ), 'is_admin' => current_user_can( 'manage_options' ) ] );
     // fetch_interceptor: auto-inject WP REST nonce into payway API calls
     wp_add_inline_script(
         'payway-audit-ui',
@@ -213,7 +222,7 @@ function payway_inject_audit_history_loader_v2() {
 // -- Audit UI v3: direct script src inject (bypasses wp_enqueue handle) --
 add_action( 'wp_footer', function () {
     if ( strpos( $_SERVER['REQUEST_URI'] ?? '', '/audit' ) === false ) return;
-    $url = plugin_dir_url( __FILE__ ) . 'assets/audit-ui-inject.js?ver=4.3';
+    $url = plugin_dir_url( __FILE__ ) . 'assets/audit-ui-inject.js?ver=5.1';
     echo '<script src="' . esc_url( $url ) . '"></script>' . "\n";
 }, 5 );
 

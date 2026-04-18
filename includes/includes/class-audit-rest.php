@@ -68,15 +68,15 @@ class PW_Audit_REST {
             return new WP_Error( 'missing_url', 'Укажите URL канала', [ 'status' => 400 ] );
         }
  
-        // Rate limiting: ≤ 5 запросов / час (админы — без лимита)
-        if ( ! current_user_can( 'manage_options' ) ) {
-            $rate_key = 'payway_audit_rate_' . $user_id;
-            $rate_cnt = (int) get_transient( $rate_key );
-            if ( $rate_cnt >= 5 ) {
-                return new WP_Error( 'rate_limit', 'Превышен лимит запросов (5 в час)', [ 'status' => 429 ] );
-            }
-            set_transient( $rate_key, $rate_cnt + 1, HOUR_IN_SECONDS );
-        }
+// Rate limiting: ≤ 5 запросов / час (не для админа)
+if ( ! current_user_can( 'manage_options' ) ) {
+    $rate_key = 'payway_audit_rate_' . $user_id;
+    $rate_cnt = (int) get_transient( $rate_key );
+    if ( $rate_cnt >= 5 ) {
+        return new WP_Error( 'rate_limit', 'Превышен лимит запросов (5 в час)', [ 'status' => 429 ] );
+    }
+    set_transient( $rate_key, $rate_cnt + 1, HOUR_IN_SECONDS );
+}
  
         // 1. YouTube API
         $yt_data = $this->yt_api->get_channel_full_data( $channel_url );

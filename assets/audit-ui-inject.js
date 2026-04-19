@@ -1460,7 +1460,7 @@
       return;
     }
  
-    if (store.status === 'done' && isAuditPage()) {
+    if (store.status === 'done' && (isAuditReportPage() || _wasProcessing)) {
       if (store.report) {
         renderReport(store);
       } else if (store.auditId) {
@@ -1486,6 +1486,7 @@
  
     var lastKey = (store.auditId || '') + '/' + (store.isPaid ? '1' : '0') + '/' + (store.status || '');
     var lastUrl = location.href;
+    var _wasProcessing = false; // true если мы видели pending/processing — значит аудит запущен на ЭТОЙ странице
  
     setInterval(function () {
       // Detect SPA route change ПЕРВЫМ — до проверки store (store может не существовать на других страницах)
@@ -1496,6 +1497,7 @@
         _pwApiCache = {};
         _pwApiFailed = {};
         _pwNonceRefreshed = false;
+        _wasProcessing = false;
         removeInject();
  
         // Если в URL есть ?id=X — через 1с попробовать загрузить отчёт
@@ -1553,6 +1555,7 @@
       }
  
       // Sprint v4.7: показываем информативный прелоадер при processing/pending (только на /audit/)
+      if (s.status === 'processing' || s.status === 'pending') _wasProcessing = true;
       if ((s.status === 'processing' || s.status === 'pending') && isAuditPage()) {
         if (!document.getElementById('pw-audit-loader')) {
           // Ищем контейнер: .audit-result или основной контент-блок Vue
@@ -1584,16 +1587,19 @@
  
       var currKey = (s.auditId || '') + '/' + (s.isPaid ? '1' : '0') + '/' + (s.status || '');
  
+      // Разрешаем рендер отчёта: либо URL имеет ?id=X, либо аудит запущен на этой странице (pending→done)
+      var canRenderReport = isAuditReportPage() || _wasProcessing;
+ 
       if (currKey !== lastKey) {
-        if (s.status === 'done' && s.report && isAuditPage()) {
+        if (s.status === 'done' && s.report && canRenderReport) {
           lastKey = currKey;
           renderReport(s);
-        } else if (s.status === 'done' && !s.report && s.auditId && isAuditPage()) {
+        } else if (s.status === 'done' && !s.report && s.auditId && canRenderReport) {
           // Store не содержит report — грузим из API
           lastKey = currKey;
           _pwApiCache = {};
           fetchAuditFull(s.auditId, function(apiData) {
-            if (!isAuditPage()) return; // страница могла измениться
+            if (!isAuditPage()) return;
             if (apiData && apiData.report) {
               renderReport(s, apiData);
             } else if (apiData && apiData.id) {
@@ -1606,7 +1612,7 @@
         }
       }
  
-      if (!document.getElementById('pw-audit-inject') && s.status === 'done' && (s.report || s.auditId) && isAuditPage()) {
+      if (!document.getElementById('pw-audit-inject') && s.status === 'done' && (s.report || s.auditId) && canRenderReport) {
         if (s.report) {
           renderReport(s);
         } else if (s.auditId) {

@@ -368,12 +368,11 @@ if ( ! current_user_can( 'manage_options' ) ) {
                 'php_signals_count' => $preview['php_signals_count']  ?? 0,
                 'block1_criteria'   => $preview['block1_criteria']    ?? [],
             ],
-        'report'         => $_report_vue,
-            'unlock_info'    => [
-                'balance'          => $balance,
-                'credit_available' => $this->is_credit_available( $user_id, $balance ),
-                'credit_used'      => $balance == 0 && (bool) get_transient( 'payway_audit_credit_' . $user_id ),
-            ],
+        'unlock_info'    => [
+    'balance'          => $balance,
+    'credit_available' => PW_Audit_Credit::check( get_current_user_id() )['allowed'],
+    'credit_status'    => PW_Audit_Credit::get_status( get_current_user_id() ),
+],
         ];
  
         if ( $list_mode ) {

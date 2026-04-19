@@ -13,6 +13,34 @@
 (function () {
   'use strict';
  
+  // —— Перехват nonce из Vue-запросов ——————————————————————————————————————————————————————
+  // Vue-приложение делает API-запросы с валидным nonce. Перехватываем его для своих запросов.
+  var _pwCapturedNonce = '';
+  (function () {
+    // Intercept fetch()
+    var origFetch = window.fetch;
+    window.fetch = function (url, opts) {
+      try {
+        if (opts && opts.headers) {
+          var n;
+          if (opts.headers instanceof Headers) {
+            n = opts.headers.get('X-WP-Nonce');
+          } else if (typeof opts.headers === 'object') {
+            n = opts.headers['X-WP-Nonce'];
+          }
+          if (n) _pwCapturedNonce = n;
+        }
+      } catch (e) { /* ignore */ }
+      return origFetch.apply(this, arguments);
+    };
+    // Intercept XMLHttpRequest.setRequestHeader()
+    var origSetHeader = XMLHttpRequest.prototype.setRequestHeader;
+    XMLHttpRequest.prototype.setRequestHeader = function (name, value) {
+      try { if (name === 'X-WP-Nonce' && value) _pwCapturedNonce = value; } catch (e) {}
+      return origSetHeader.apply(this, arguments);
+    };
+  })();
+ 
   // —— CSS (одноразовый инжект) —————————————————————————————————————————————————————————
   var CSS_ID = 'pw-aui-style-v4';
   if (!document.getElementById(CSS_ID)) {
@@ -1288,30 +1316,45 @@
       .catch(function () { cb(); });
   }
  
+  // Собрать лучший доступный nonce из всех источников
+  function getBestNonce() {
+    return _pwCapturedNonce
+      || (window.paywayAuditCfg && window.paywayAuditCfg.nonce)
+      || (window.wpApiSettings && window.wpApiSettings.nonce)
+      || '';
+  }
+ 
   function fetchAuditFull(auditId, cb) {
-    if (_pwApiFailed[auditId]) { cb({ _error: true }); return; }
     if (_pwApiCache[auditId]) { cb(_pwApiCache[auditId]); return; }
  
-    // Сначала обновляем nonce, потом делаем запрос
-    refreshNonce(function () {
-      var nonce = (window.paywayAuditCfg && window.paywayAuditCfg.nonce) || '';
-      fetch('/wp-json/payway/v1/audit/' + auditId + '/status', {
-        credentials: 'same-origin',
-        headers: { 'X-WP-Nonce': nonce }
-      })
-      .then(function (r) { return r.json(); })
-      .then(function (d) {
-        // Если REST вернул ошибку (401, 403 и т.д.) — не кешируем как валидные данные
-        if (d && (d.code || d.data && d.data.status >= 400)) {
-          _pwApiFailed[auditId] = true;
-          cb({ _error: true, code: d.code || 'unknown' });
-          return;
-        }
-        _pwApiCache[auditId] = d;
-        cb(d);
-      })
-      .catch(function () { _pwApiFailed[auditId] = true; cb({ _error: true }); });
-    });
+    var nonce = getBestNonce();
+ 
+    // Если nonce пуст — подождать 1.5с (Vue-запрос мог ещё не уйти), потом попробовать снова
+    if (!nonce && !_pwApiFailed[auditId]) {
+      _pwApiFailed[auditId] = true; // предотвращаем бесконечный цикл
+      setTimeout(function () {
+        _pwApiFailed[auditId] = false;
+        _pwApiCache = {};
+        fetchAuditFull(auditId, cb);
+      }, 1500);
+      return;
+    }
+ 
+    fetch('/wp-json/payway/v1/audit/' + auditId + '/status', {
+      credentials: 'same-origin',
+      headers: nonce ? { 'X-WP-Nonce': nonce } : {}
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d && (d.code || (d.data && d.data.status >= 400))) {
+        _pwApiFailed[auditId] = true;
+        cb({ _error: true, code: d.code || 'unknown' });
+        return;
+      }
+      _pwApiCache[auditId] = d;
+      cb(d);
+    })
+    .catch(function () { _pwApiFailed[auditId] = true; cb({ _error: true }); });
   }
  
   function renderReport(store, _apiData) {
@@ -1442,7 +1485,23 @@
         lastKey = ''; // сбросить ключ чтобы пересчитать состояние
         _pwApiCache = {};
         _pwApiFailed = {};
+        _pwNonceRefreshed = false;
         removeInject();
+ 
+        // Если в URL есть ?id=X — через 1с попробовать загрузить отчёт
+        var urlId = getAuditIdFromUrl();
+        if (urlId) {
+          setTimeout(function () {
+            if (!document.getElementById('pw-audit-inject')) {
+              fetchAuditFull(urlId, function (apiData) {
+                if (apiData && !apiData._error) {
+                  var st = getStore() || {};
+                  renderReport(st, apiData);
+                }
+              });
+            }
+          }, 1200);
+        }
       }
  
       // Sprint v4.8: убрать лендинг когда пользователь отправил форму

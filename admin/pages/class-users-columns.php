@@ -5,7 +5,7 @@
  * @copyright (c) 17.09.2024, CreativeMotion
  * @version 1.0
  */
-
+ 
 class PaywayUserColumns
 {
     /**
@@ -19,7 +19,7 @@ class PaywayUserColumns
         add_action('manage_users_custom_column', [$this, 'render_custom_column'], 10, 3);
         add_action('pre_get_users', [$this, 'default_sort_by_newest']);
     }
-
+ 
     /**
      * Enqueue scripts for the users page
      *
@@ -34,12 +34,12 @@ class PaywayUserColumns
                 ['jquery'],
                 PAYWAY_PLUGIN_VERSION
             );
-
+ 
             wp_localize_script('payway-users', 'paywayData', [
                 'apiUrl' => rest_url('payway/v1/'),
                 'nonce' => wp_create_nonce('wp_rest'),
             ]);
-
+ 
             wp_enqueue_style(
                 'payway-users-styles',
                 PAYWAY_PLUGIN_URL . '/admin/assets/css/users.css',
@@ -48,7 +48,7 @@ class PaywayUserColumns
             );
         }
     }
-
+ 
     /**
      * Add custom columns to the user table
      *
@@ -65,7 +65,7 @@ class PaywayUserColumns
             'payway_projects' => __(''),
         ]);
     }
-
+ 
     /**
      * Render content for each custom column
      *
@@ -79,8 +79,11 @@ class PaywayUserColumns
     {
         if ('payway_withdrawal_balance' === $column_name) {
             $balance = (float)get_user_meta($user_id, 'payway_withdrawal_balance', true);
-            $class = $balance > 0 ? 'payway-balance-positive' : 'payway-balance-zero';
-            return '<input type="text" class="' . esc_attr($class) . '"
+            // FIX v5.5: восстановлен класс payway-user-withdrawal-balance-input,
+            // который слушает users.js для сохранения изменений через AJAX.
+            // Классы payway-balance-positive / payway-balance-zero сохранены для стилей.
+            $style_class = $balance > 0 ? 'payway-balance-positive' : 'payway-balance-zero';
+            return '<input type="text" class="payway-user-withdrawal-balance-input ' . esc_attr($style_class) . '"
                             data-default-balance="' . esc_attr($balance) . '"
                             data-user-id="' . esc_attr($user_id) . '"
                             min="0"
@@ -102,22 +105,22 @@ class PaywayUserColumns
                 "SELECT url, status FROM {$table} WHERE user_id = %d ORDER BY time DESC",
                 $user_id
             ));
-
+ 
             if (empty($projects)) {
                 return $val;
             }
-
+ 
             $links = [];
             $status_colors = [
                 'approved' => '#28a745',
                 'review'   => '#007bff',
                 'rejected' => '#dc3545',
             ];
-
+ 
             foreach ($projects as $project) {
                 $url = esc_url($project->url);
                 $color = isset($status_colors[$project->status]) ? $status_colors[$project->status] : '#666';
-
+ 
                 // Extract display name from URL
                 $display = $project->url;
                 if (preg_match('#youtube\.com|youtu\.be#i', $project->url)) {
@@ -132,16 +135,16 @@ class PaywayUserColumns
                         $display .= rtrim($parsed['path'], '/');
                     }
                 }
-
+ 
                 $links[] = '<a href="' . $url . '" target="_blank" style="color:' . esc_attr($color) . ';text-decoration:none;font-weight:500;">' . esc_html($display) . '</a>';
             }
-
+ 
             return implode('<br>', $links);
         }
-
+ 
         return $val;
     }
-
+ 
     /**
      * Default sort users by newest first
      */
@@ -153,5 +156,5 @@ class PaywayUserColumns
         }
     }
 }
-
+ 
 new PaywayUserColumns();

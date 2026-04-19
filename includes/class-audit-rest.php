@@ -215,74 +215,102 @@ if ( ! current_user_can( 'manage_options' ) ) {
     // POST /audit/{id}/unlock — три ветки баланса (§7)
     // ─────────────────────────────────────────────────────────
  
-    public function unlock_report( WP_REST_Request $request ) {
-        global $wpdb;
+public function unlock_report( WP_REST_Request $request ) {
+    global $wpdb;
  
-        $audit_id = (int) $request->get_param( 'id' );
-        $user_id  = get_current_user_id();
-        $table    = $wpdb->prefix . 'pw_channel_audits';
+    $audit_id = (int) $request->get_param( 'id' );
+    $user_id  = get_current_user_id();
+    $table    = $wpdb->prefix . 'pw_channel_audits';
  
+    // ADMIN BYPASS: администратор может разблокировать любой аудит
+    if ( current_user_can( 'manage_options' ) ) {
+        $audit = $wpdb->get_row( $wpdb->prepare(
+            "SELECT * FROM {$table} WHERE id = %d", $audit_id
+        ) );
+    } else {
         $audit = $wpdb->get_row( $wpdb->prepare(
             "SELECT * FROM {$table} WHERE id = %d AND user_id = %d",
             $audit_id, $user_id
-        ));
+        ) );
+    }
  
-        if ( ! $audit ) {
-            return new WP_Error( 'not_found', 'Аудит не найден', [ 'status' => 404 ] );
-        }
-        if ( $audit->is_paid ) {
-            return new WP_Error( 'alreadyUnlocked', 'Отчёт уже оплачен', [ 'status' => 400 ] );
-        }
+    if ( ! $audit ) {
+        return new WP_Error( 'not_found', 'Аудит не найден', [ 'status' => 404 ] );
+    }
+    if ( $audit->is_paid ) {
+        return new WP_Error( 'alreadyUnlocked', 'Отчёт уже оплачен', [ 'status' => 400 ] );
+    }
  
-        $balance = (float) get_user_meta( $user_id, 'payway_withdrawal_balance', true );
+    $balance = (float) get_user_meta( $user_id, 'payway_withdrawal_balance', true );
  
-        // Ветка 3: баланс < 0
-        if ( $balance < 0 ) {
-            return new WP_Error( 'negativeBalance', 'Баланс отрицательный. Пополните баланс.', [ 'status' => 402 ] );
-        }
- 
-        // Ветка 2: баланс = 0 (кредит)
-        if ( $balance == 0 ) {
-            $credit_key = 'payway_audit_credit_' . $user_id;
-            if ( get_transient( $credit_key ) ) {
-                return new WP_Error( 'dailyCreditLimitReached', 'Дневной кредитный лимит использован. Доступен снова завтра или после пополнения баланса.', [ 'status' => 429 ] );
-            }
-            // Транзакция
-            $wpdb->query( 'START TRANSACTION' );
-            $fresh_balance = (float) $wpdb->get_var( "SELECT meta_value FROM {$wpdb->usermeta} WHERE user_id = {$user_id} AND meta_key = 'payway_withdrawal_balance' FOR UPDATE" );
-            if ( $fresh_balance != 0 ) {
-                $wpdb->query( 'ROLLBACK' );
-                return new WP_Error( 'balance_changed', 'Баланс изменился. Повторите попытку.', [ 'status' => 409 ] );
-            }
-            $wpdb->update( $wpdb->usermeta, [ 'meta_value' => '-1.00' ], [ 'user_id' => $user_id, 'meta_key' => 'payway_withdrawal_balance' ], [ '%s' ], [ '%d', '%s' ] );
-            $wpdb->query( $wpdb->prepare( "UPDATE {$table} SET is_paid = 1, amount_charged = 1.00 WHERE id = %d AND user_id = %d", $audit_id, $user_id ) );
-            $wpdb->query( 'COMMIT' );
- 
-            // Transient до полуночи UTC
-            $ttl = strtotime( 'tomorrow 00:00 UTC' ) - time();
-            set_transient( $credit_key, 1, $ttl );
- 
-            $audit = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $audit_id ) );
-            $response = $this->normalize_report( $audit, $user_id );
-            $response['credit_used'] = true;
-            return rest_ensure_response( $response );
-        }
- 
-        // Ветка 1: баланс > 0
+    // Ветка 1: баланс >= $1 — платное списание
+    if ( $balance >= 1 ) {
         $wpdb->query( 'START TRANSACTION' );
-        $fresh_balance = (float) $wpdb->get_var( "SELECT meta_value FROM {$wpdb->usermeta} WHERE user_id = {$user_id} AND meta_key = 'payway_withdrawal_balance' FOR UPDATE" );
-        if ( $fresh_balance <= 0 ) {
+        $fresh_balance = (float) $wpdb->get_var(
+            "SELECT meta_value FROM {$wpdb->usermeta} WHERE user_id = {$user_id} AND meta_key = 'payway_withdrawal_balance' FOR UPDATE"
+        );
+        if ( $fresh_balance < 1 ) {
             $wpdb->query( 'ROLLBACK' );
             return new WP_Error( 'insufficientBalance', 'Недостаточно средств', [ 'status' => 402 ] );
         }
         $new_balance = $fresh_balance - 1.00;
-        $wpdb->update( $wpdb->usermeta, [ 'meta_value' => number_format( $new_balance, 2, '.', '' ) ], [ 'user_id' => $user_id, 'meta_key' => 'payway_withdrawal_balance' ], [ '%s' ], [ '%d', '%s' ] );
-        $wpdb->query( $wpdb->prepare( "UPDATE {$table} SET is_paid = 1, amount_charged = 1.00 WHERE id = %d AND user_id = %d", $audit_id, $user_id ) );
+        $wpdb->update(
+            $wpdb->usermeta,
+            [ 'meta_value' => number_format( $new_balance, 2, '.', '' ) ],
+            [ 'user_id' => $user_id, 'meta_key' => 'payway_withdrawal_balance' ],
+            [ '%s' ], [ '%d', '%s' ]
+        );
+        $wpdb->query( $wpdb->prepare(
+            "UPDATE {$table} SET is_paid = 1, amount_charged = 1.00 WHERE id = %d",
+            $audit_id
+        ) );
         $wpdb->query( 'COMMIT' );
  
         $audit = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $audit_id ) );
         return rest_ensure_response( $this->normalize_report( $audit, $user_id ) );
     }
+ 
+    // Ветка 2: бесплатный кредит (баланс < $1)
+    // Для администраторов разрешаем без проверки кредитов
+    if ( ! current_user_can( 'manage_options' ) ) {
+        $credit_check = PW_Audit_Credit::check( $user_id );
+        if ( ! $credit_check['allowed'] ) {
+            $reason = $credit_check['reason'] ?? '';
+            if ( $reason === 'daily_limit' ) {
+                return new WP_Error(
+                    'dailyCreditLimitReached',
+                    'Дневной лимит бесплатного отчёта использован. Доступен снова завтра.',
+                    [ 'status' => 429 ]
+                );
+            }
+            if ( $reason === 'limit_reached' ) {
+                return new WP_Error(
+                    'creditLimitReached',
+                    'Все 3 бесплатных отчёта использованы. Пополните баланс для продолжения.',
+                    [ 'status' => 402 ]
+                );
+            }
+            return new WP_Error(
+                'insufficientBalance',
+                'Недостаточно средств для разблокировки отчёта.',
+                [ 'status' => 402 ]
+            );
+        }
+        // Списываем кредит (инкрементирует payway_audit_free_used + ставит daily transient)
+        PW_Audit_Credit::consume( $user_id );
+    }
+ 
+    // Помечаем аудит как разблокированный (amount_charged = 0 т.к. реальных денег не списано)
+    $wpdb->query( $wpdb->prepare(
+        "UPDATE {$table} SET is_paid = 1, amount_charged = 0.00 WHERE id = %d",
+        $audit_id
+    ) );
+ 
+    $audit    = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $audit_id ) );
+    $response = (array) $this->normalize_report( $audit, $user_id );
+    $response['credit_used'] = true;
+    return rest_ensure_response( $response );
+}
  
     // ─────────────────────────────────────────────────────────
     // GET /audit/history

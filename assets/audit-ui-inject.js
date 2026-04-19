@@ -1512,7 +1512,7 @@
                 }
               });
             }
-          }, 1200);
+          }, 400);
         }
       }
  
@@ -1593,7 +1593,15 @@
       if (currKey !== lastKey) {
         if (s.status === 'done' && s.report && canRenderReport) {
           lastKey = currKey;
-          renderReport(s);
+          renderReport(s); // Быстрый рендер из store
+          // Всегда догружаем unlock_info из API (store.report не содержит этого поля)
+          var _fid = getAuditIdFromUrl() || s.auditId;
+          if (_fid) {
+            fetchAuditFull(_fid, function(apiData) {
+              if (!isAuditPage() || !apiData || apiData._error) return;
+              renderReport(s, apiData);
+            });
+          }
         } else if (s.status === 'done' && !s.report && s.auditId && canRenderReport) {
           // Store не содержит report — грузим из API
           lastKey = currKey;
@@ -1613,13 +1621,14 @@
       }
  
       if (!document.getElementById('pw-audit-inject') && s.status === 'done' && (s.report || s.auditId) && canRenderReport) {
-        if (s.report) {
-          renderReport(s);
-        } else if (s.auditId) {
+        if (s.auditId) {
           fetchAuditFull(s.auditId, function(apiData) {
             if (!isAuditPage()) return;
             if (apiData) renderReport(s, apiData);
+            else if (s.report) renderReport(s);
           });
+        } else if (s.report) {
+          renderReport(s);
         }
       }
     }, 800);

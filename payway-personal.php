@@ -3,7 +3,7 @@
 Plugin Name: Payway - личный кабинет
 Plugin URI:  http://yourwebsite.com/my-custom-plugin
 Description: Добавляет авторизацию и личный кабинет пользователя
-Version:     7.0
+Version:     8.0
 Author:      Rus, Alex Kovalev
 Author URI:  null
 License:     GPL2
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'PAYWAY_PLUGIN_VERSION',  '7.0' );
+define( 'PAYWAY_PLUGIN_VERSION',  '8.0' );
 define( 'PAYWAY_PLUGIN_FILE',     __FILE__ );
 define( 'PAYWAY_ABSPATH',         dirname( __FILE__ ) );
 define( 'PAYWAY_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
@@ -222,7 +222,7 @@ function payway_inject_audit_history_loader_v2() {
 // -- Audit UI v3: direct script src inject (bypasses wp_enqueue handle) --
 add_action( 'wp_footer', function () {
     if ( strpos( $_SERVER['REQUEST_URI'] ?? '', '/audit' ) === false ) return;
-    $url = plugin_dir_url( __FILE__ ) . 'assets/audit-ui-inject.js?ver=8.3';
+    $url = plugin_dir_url( __FILE__ ) . 'assets/audit-ui-inject.js?ver=8.0';
     echo '<script src="' . esc_url( $url ) . '"></script>' . "\n";
 }, 5 );
 

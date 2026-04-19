@@ -1308,15 +1308,19 @@
     if (!report) return;
  
     var auditResult = document.querySelector('.audit-result');
-    if (!auditResult) return;
- 
-    var container = auditResult.parentElement;
+    var container = auditResult
+      ? auditResult.parentElement
+      : document.querySelector('[data-v-app] .col:not(.col-fixed) > div');
     if (!container) return;
  
     var inject = document.getElementById('pw-audit-inject');
     if (!inject) {
       inject = h('div', { id: 'pw-audit-inject' });
-      container.insertBefore(inject, auditResult);
+      if (auditResult) {
+        container.insertBefore(inject, auditResult);
+      } else {
+        container.appendChild(inject);
+      }
     }
  
     inject.innerHTML = '';
@@ -1382,8 +1386,15 @@
       return;
     }
  
-    if (store.status === 'done' && store.report) {
-      renderReport(store);
+    if (store.status === 'done') {
+      if (store.report) {
+        renderReport(store);
+      } else if (store.auditId) {
+        // store.report пуст — грузим из API
+        fetchAuditFull(store.auditId, function(apiData) {
+          if (apiData && !apiData._error) renderReport(store, apiData);
+        });
+      }
     }
  
     // Sprint v4.8: показать лендинг если форма ещё не отправлена

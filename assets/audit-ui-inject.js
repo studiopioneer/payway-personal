@@ -1488,10 +1488,7 @@
     var lastUrl = location.href;
  
     setInterval(function () {
-      var s = getStore();
-      if (!s) return;
- 
-      // Detect SPA route change — Vue Router меняет URL без перезагрузки
+      // Detect SPA route change ПЕРВЫМ — до проверки store (store может не существовать на других страницах)
       var currentUrl = location.href;
       if (currentUrl !== lastUrl) {
         lastUrl = currentUrl;
@@ -1515,6 +1512,25 @@
             }
           }, 1200);
         }
+      }
+ 
+      var s = getStore();
+ 
+      // На не-audit страницах store может не существовать — просто ждём
+      if (!s) {
+        // Но лендинг можно показать даже без store
+        if (isAuditFormPage() && !document.getElementById('pw-audit-landing')) {
+          var contentAreaNoStore = document.querySelector('[data-v-app] .col:not(.col-fixed) > div');
+          if (contentAreaNoStore) {
+            var landingNoStore = buildLandingBlock();
+            if (contentAreaNoStore.firstChild) {
+              contentAreaNoStore.insertBefore(landingNoStore, contentAreaNoStore.firstChild);
+            } else {
+              contentAreaNoStore.appendChild(landingNoStore);
+            }
+          }
+        }
+        return;
       }
  
       // Sprint v4.8: убрать лендинг когда пользователь отправил форму

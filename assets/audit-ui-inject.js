@@ -1188,22 +1188,18 @@
       startBtn.style.opacity = '0.6';
       startBtn.textContent = 'Запуск...';
  
-      // Показываем loading screen вместо лендинга
-      var landing    = document.getElementById('pw-audit-landing');
-      var contentArea = landing
-        ? landing.parentElement
-        : document.querySelector('[data-v-app] .col:not(.col-fixed) > div');
-      if (landing) { landing.remove(); document.body.classList.remove('pw-form-page-active'); }
-      var oldInject = document.getElementById('pw-audit-inject');
-      if (oldInject) oldInject.remove();
-      var inject = h('div', { id: 'pw-audit-inject' });
-      if (contentArea) {
-        var sib = contentArea.children;
-        for (var si2 = 0; si2 < sib.length; si2++) sib[si2].style.display = 'none';
-        contentArea.appendChild(inject);
-        inject.style.display = '';
-      }
-      inject.appendChild(buildLoadingScreen());
+      // Показываем loading screen как fixed overlay — setInterval не сможет его затереть
+      // пока POST-запрос выполняется (60-90 сек)
+      var overlay = document.getElementById('pw-audit-submit-overlay');
+      if (overlay) overlay.remove();
+      overlay = h('div', {
+        id: 'pw-audit-submit-overlay',
+        style: 'position:fixed;top:0;left:0;right:0;bottom:0;background:#f5f5f7;z-index:99999;overflow-y:auto;display:flex;align-items:flex-start;justify-content:center;padding:60px 20px'
+      });
+      var overlayInner = h('div', { style: 'width:100%;max-width:680px' });
+      overlayInner.appendChild(buildLoadingScreen());
+      overlay.appendChild(overlayInner);
+      document.body.appendChild(overlay);
  
       // POST /wp-json/payway/v1/audit (синхронный, ответ через ~60-90 сек)
       var nonce = (window.paywayAuditCfg && window.paywayAuditCfg.nonce) || _pwCapturedNonce || '';
@@ -1767,13 +1763,24 @@
     }, 800);
   }
  
-  // —— Старф —————————————————————————————————————————————————————————————————————————————————
+  // —— Старт ————————————————————————————————————————————————————————————————————————————————
+  // Немедленно скрываем Vue-элементы на /audit?id=X чтобы не было флеша Vue-контента
+  (function () {
+    if (isAuditReportPage()) {
+      var _earlyContainer = document.querySelector('[data-v-app] .col:not(.col-fixed) > div');
+      if (_earlyContainer) {
+        var _ch = _earlyContainer.children;
+        for (var _i = 0; _i < _ch.length; _i++) _ch[_i].style.display = 'none';
+      }
+    }
+  })();
+ 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () {
-      setTimeout(function () { tryRender(30); }, 600);
+      setTimeout(function () { tryRender(30); }, 100);
     });
   } else {
-    setTimeout(function () { tryRender(30); }, 600);
+    setTimeout(function () { tryRender(30); }, 100);
   }
  
 })();

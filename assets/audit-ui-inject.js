@@ -1370,11 +1370,18 @@
     }
  
     // Скрываем оригинальные Vue-секции
-    auditResult.style.display = 'none';
+    if (auditResult) auditResult.style.display = 'none';
     var fullReportDiv = document.querySelector('.audit-full-report');
     if (fullReportDiv) fullReportDiv.style.display = 'none';
     var unlockDiv = document.querySelector('.audit-unlock-button');
     if (unlockDiv) unlockDiv.style.display = 'none';
+    // Скрыть Vue-блок "Полный отчёт заблокирован" и другие Vue-элементы в контейнере
+    var siblings = container.children;
+    for (var i = 0; i < siblings.length; i++) {
+      if (siblings[i] !== inject && siblings[i].id !== 'pw-audit-inject') {
+        siblings[i].style.display = 'none';
+      }
+    }
   }
  
   // —— Цикл опроса store ——————————————————————————————————————————————————————————————————————

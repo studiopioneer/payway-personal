@@ -1126,6 +1126,18 @@
     return (p === '/audit' || p.endsWith('/audit')) && !location.search;
   }
  
+  // Проверка: мы на странице отчёта /audit/?id=X
+  function isAuditReportPage() {
+    var p = location.pathname.replace(/\/+$/, '');
+    return (p === '/audit' || p.endsWith('/audit')) && !!getAuditIdFromUrl();
+  }
+ 
+  // Проверка: мы на любой /audit/ странице (не /audit-history и т.п.)
+  function isAuditPage() {
+    var p = location.pathname.replace(/\/+$/, '');
+    return p === '/audit' || p.endsWith('/audit');
+  }
+ 
   // —— Sprint v4.8: Лендинговый блок для /audit/ ————————————————————————————————————————————
   function buildLandingBlock() {
     var el = h('div', { id: 'pw-audit-landing', class: 'pw-landing', style: 'padding-top:24px' });
@@ -1447,7 +1459,7 @@
       return;
     }
  
-    if (store.status === 'done') {
+    if (store.status === 'done' && isAuditPage()) {
       if (store.report) {
         renderReport(store);
       } else if (store.auditId) {
@@ -1490,11 +1502,11 @@
  
         // Если в URL есть ?id=X — через 1с попробовать загрузить отчёт
         var urlId = getAuditIdFromUrl();
-        if (urlId) {
+        if (urlId && isAuditPage()) {
           setTimeout(function () {
-            if (!document.getElementById('pw-audit-inject')) {
+            if (!document.getElementById('pw-audit-inject') && isAuditPage()) {
               fetchAuditFull(urlId, function (apiData) {
-                if (apiData && !apiData._error) {
+                if (apiData && !apiData._error && isAuditPage()) {
                   var st = getStore() || {};
                   renderReport(st, apiData);
                 }
@@ -1523,8 +1535,8 @@
         }
       }
  
-      // Sprint v4.7: показываем информативный прелоадер при processing/pending
-      if (s.status === 'processing' || s.status === 'pending') {
+      // Sprint v4.7: показываем информативный прелоадер при processing/pending (только на /audit/)
+      if ((s.status === 'processing' || s.status === 'pending') && isAuditPage()) {
         if (!document.getElementById('pw-audit-loader')) {
           // Ищем контейнер: .audit-result или основной контент-блок Vue
           var auditResult = document.querySelector('.audit-result');
@@ -1556,18 +1568,18 @@
       var currKey = (s.auditId || '') + '/' + (s.isPaid ? '1' : '0') + '/' + (s.status || '');
  
       if (currKey !== lastKey) {
-        if (s.status === 'done' && s.report) {
+        if (s.status === 'done' && s.report && isAuditPage()) {
           lastKey = currKey;
           renderReport(s);
-        } else if (s.status === 'done' && !s.report && s.auditId) {
+        } else if (s.status === 'done' && !s.report && s.auditId && isAuditPage()) {
           // Store не содержит report — грузим из API
           lastKey = currKey;
           _pwApiCache = {};
           fetchAuditFull(s.auditId, function(apiData) {
+            if (!isAuditPage()) return; // страница могла измениться
             if (apiData && apiData.report) {
               renderReport(s, apiData);
             } else if (apiData && apiData.id) {
-              // API вернул данные в корне (не вложенные в report)
               renderReport(s, { report: apiData, preview: apiData.preview || {} });
             }
           });
@@ -1577,11 +1589,12 @@
         }
       }
  
-      if (!document.getElementById('pw-audit-inject') && s.status === 'done' && (s.report || s.auditId)) {
+      if (!document.getElementById('pw-audit-inject') && s.status === 'done' && (s.report || s.auditId) && isAuditPage()) {
         if (s.report) {
           renderReport(s);
         } else if (s.auditId) {
           fetchAuditFull(s.auditId, function(apiData) {
+            if (!isAuditPage()) return;
             if (apiData) renderReport(s, apiData);
           });
         }

@@ -289,6 +289,14 @@ if ( ! current_user_can( 'manage_options' ) ) {
         return rest_ensure_response( $response );
     }
  
+        // Возвращаем обновлённый отчёт
+        $audit    = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $audit_id ) );
+        $response = $this->normalize_report( $audit, $user_id );
+        $response['paid_by']       = $paid_by;
+        $response['credit_status'] = PW_Audit_Credit::get_status( $user_id );
+        return rest_ensure_response( $response );
+    }
+ 
     // ─────────────────────────────────────────────────────────
     // GET /audit/history
     // ─────────────────────────────────────────────────────────

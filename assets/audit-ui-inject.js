@@ -1441,11 +1441,13 @@
       var currKey = (s.auditId || '') + '/' + (s.isPaid ? '1' : '0') + '/' + (s.status || '');
  
       if (currKey !== lastKey) {
-        lastKey = currKey;
         if (s.status === 'done' && s.report) {
+          lastKey = currKey;
           renderReport(s);
-        } else if (s.status !== 'processing' && s.status !== 'pending' && s.status !== 'done') {
-          // Не убираем inject при done — ждём пока report загрузится
+        } else if (s.status === 'done' && !s.report) {
+          // Не обновляем lastKey — ждём пока report загрузится
+        } else if (s.status !== 'processing' && s.status !== 'pending') {
+          lastKey = currKey;
           removeInject();
         }
       }

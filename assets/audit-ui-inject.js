@@ -1444,7 +1444,8 @@
         lastKey = currKey;
         if (s.status === 'done' && s.report) {
           renderReport(s);
-        } else if (s.status !== 'processing' && s.status !== 'pending') {
+        } else if (s.status !== 'processing' && s.status !== 'pending' && s.status !== 'done') {
+          // Не убираем inject при done — ждём пока report загрузится
           removeInject();
         }
       }

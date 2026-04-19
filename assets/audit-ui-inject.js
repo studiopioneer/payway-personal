@@ -1154,6 +1154,82 @@
     hero.appendChild(badge);
     el.appendChild(hero);
  
+    // ── Форма отправки канала (standalone, без Vue) ──────────────────────────
+    var formCard = h('div', { style: 'background:#fff;border:1px solid #e8e8e8;border-radius:12px;padding:22px 26px;margin-bottom:20px' });
+    var formLabel = h('div', { style: 'font-size:15px;font-weight:600;color:#1a1a1a;margin-bottom:4px' }, 'Введите ссылку на YouTube-канал');
+    var formHint = h('div', { style: 'font-size:12px;color:#999;margin-bottom:14px' }, 'Форматы: youtube.com/@handle · youtube.com/c/name · youtube.com/channel/ID');
+    var formRow = h('div', { style: 'display:flex;gap:10px;flex-wrap:wrap' });
+    var urlInput = h('input', { type: 'text', placeholder: 'https://youtube.com/@yourchannel', style: 'flex:1;min-width:220px;border:1.5px solid #e8e8e8;border-radius:8px;padding:11px 14px;font-size:14px;font-family:inherit;outline:none;transition:border-color .15s' });
+    urlInput.addEventListener('focus', function () { this.style.borderColor = '#E8192C'; });
+    urlInput.addEventListener('blur',  function () { this.style.borderColor = '#e8e8e8'; });
+    var startBtn = h('button', { style: 'background:#E8192C;color:#fff;border:none;border-radius:8px;padding:11px 22px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:opacity .15s;white-space:nowrap' }, 'Запустить аудит →');
+    var formErr = h('div', { style: 'color:#dc2626;font-size:13px;margin-top:10px;display:none' });
+    formRow.appendChild(urlInput);
+    formRow.appendChild(startBtn);
+    formCard.appendChild(formLabel);
+    formCard.appendChild(formHint);
+    formCard.appendChild(formRow);
+    formCard.appendChild(formErr);
+    el.appendChild(formCard);
+ 
+    // Enter в инпуте → клик по кнопке
+    urlInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') startBtn.click(); });
+ 
+    startBtn.addEventListener('click', function () {
+      var channelUrl = urlInput.value.trim();
+      if (!channelUrl) {
+        formErr.textContent = 'Введите ссылку на канал';
+        formErr.style.display = 'block';
+        urlInput.focus();
+        return;
+      }
+      formErr.style.display = 'none';
+      startBtn.disabled = true;
+      startBtn.style.opacity = '0.6';
+      startBtn.textContent = 'Запуск...';
+ 
+      // Показываем loading screen вместо лендинга
+      var landing    = document.getElementById('pw-audit-landing');
+      var contentArea = landing
+        ? landing.parentElement
+        : document.querySelector('[data-v-app] .col:not(.col-fixed) > div');
+      if (landing) { landing.remove(); document.body.classList.remove('pw-form-page-active'); }
+      var oldInject = document.getElementById('pw-audit-inject');
+      if (oldInject) oldInject.remove();
+      var inject = h('div', { id: 'pw-audit-inject' });
+      if (contentArea) {
+        var sib = contentArea.children;
+        for (var si2 = 0; si2 < sib.length; si2++) sib[si2].style.display = 'none';
+        contentArea.appendChild(inject);
+        inject.style.display = '';
+      }
+      inject.appendChild(buildLoadingScreen());
+ 
+      // POST /wp-json/payway/v1/audit (синхронный, ответ через ~60-90 сек)
+      var nonce = (window.paywayAuditCfg && window.paywayAuditCfg.nonce) || _pwCapturedNonce || '';
+      fetch('/wp-json/payway/v1/audit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce },
+        body: JSON.stringify({ channel_url: channelUrl })
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.code) {
+          // API-ошибка (rate limit, неверный URL и т.д.)
+          alert(data.message || 'Ошибка при запуске аудита. Попробуйте ещё раз.');
+          window.location.href = '/audit';
+          return;
+        }
+        var auditId = data.audit_id || data.id;
+        // Переходим на страницу отчёта (полная загрузка — надёжнее SPA-навигации)
+        window.location.href = '/audit?id=' + auditId;
+      })
+      .catch(function () {
+        alert('Ошибка сети. Проверьте подключение и попробуйте снова.');
+        window.location.href = '/audit';
+      });
+    });
+ 
     // Grid карточек
     var grid = h('div', { style: 'display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px' });
  

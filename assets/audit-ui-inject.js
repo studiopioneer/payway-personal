@@ -48,6 +48,8 @@
     style.id = CSS_ID;
     style.textContent = [
       '[data-v-app] .col:not(.col-fixed) > div{padding-top:24px}',
+      /* Скрывать Vue-блоки при активном лендинге/инжекте (победить Vue reactivity) */
+      '.pw-form-page-active [data-v-app] .col:not(.col-fixed) > div > *:not(#pw-audit-landing):not(#pw-audit-inject){display:none!important}',
       '#pw-audit-inject{font-family:"Inter",system-ui,sans-serif;margin-bottom:16px}',
       '#pw-audit-inject *{box-sizing:border-box}',
  
@@ -1374,6 +1376,17 @@
     var report = store.report || (_apiData && _apiData.report) || _apiData || null;
     if (!report) return;
  
+    // BUGFIX: Pinia store.report не содержит unlock_info и is_paid от REST API.
+    // Всегда берём unlock_info из API (свежее, чем store) — исправляет баг с кнопкой "3 из 3" после использования.
+    if (report && _apiData && !_apiData._error) {
+      if (_apiData.unlock_info) {
+        report = Object.assign({}, report, { unlock_info: _apiData.unlock_info });
+      }
+      if (!report.is_paid && _apiData.is_paid) {
+        report = Object.assign({}, report, { is_paid: !!_apiData.is_paid });
+      }
+    }
+ 
     var auditResult = document.querySelector('.audit-result');
     var container = auditResult
       ? auditResult.parentElement
@@ -1397,7 +1410,12 @@
     var preview = (_apiData && _apiData.preview) || store.preview || null;
  
     // Sprint 6.4: isPaid определяем раньше для placeholder логики
-    var isPaid = store.isPaid || (report && report.is_paid);
+    // BUGFIX Admin: PHP отдаёт full=null только для не-оплаченных не-админов.
+    // Если _apiData.full не null → у пользователя есть доступ (оплатил или admin).
+    var isPaid = !!(_apiData && _apiData.full !== null && _apiData.full !== undefined)
+                 || (_apiData && !!_apiData.is_paid)
+                 || store.isPaid
+                 || !!(report && report.is_paid);
  
     // Sprint 2: Reject banner (before verdict)
     var channelMetrics = (full && full.channel_metrics) || (_apiData && _apiData.full && _apiData.full.channel_metrics) || {};
@@ -1472,7 +1490,7 @@
     }
  
     // Sprint v4.8: показать лендинг если форма ещё не отправлена (только на /audit/, не на /audit-history)
-    if ((!store.status || store.status === 'idle') && isAuditFormPage()) {
+    if (isAuditFormPage() && store.status !== 'processing' && store.status !== 'pending') {
       var contentArea = document.querySelector('[data-v-app] .col:not(.col-fixed) > div');
       if (contentArea && !document.getElementById('pw-audit-landing')) {
         var landing = buildLandingBlock();
@@ -1480,6 +1498,12 @@
           contentArea.insertBefore(landing, contentArea.firstChild);
         } else {
           contentArea.appendChild(landing);
+        }
+        // Скрыть Vue-блоки (locked report и др.) пока показываем лендинг
+        document.body.classList.add('pw-form-page-active');
+        var ch = contentArea.children;
+        for (var ci = 0; ci < ch.length; ci++) {
+          if (ch[ci].id !== 'pw-audit-landing') ch[ci].style.display = 'none';
         }
       }
     }
@@ -1499,8 +1523,35 @@
         _pwNonceRefreshed = false;
         _wasProcessing = false;
         removeInject();
+      document.body.classList.remove('pw-form-page-active');
  
-        // Если в URL есть ?id=X — через 1с попробовать загрузить отчёт
+        // При переходе НЕ на audit — восстановить видимость Vue-элементов (иначе /account не показывается)
+        // При переходе НА audit — скрыть блок "Полный отчёт заблокирован"
+        if (!isAuditPage()) {
+          setTimeout(function () {
+            var container0 = document.querySelector('[data-v-app] .col:not(.col-fixed) > div');
+            if (container0) {
+              var ch = container0.children;
+              for (var ci = 0; ci < ch.length; ci++) {
+                ch[ci].style.display = '';
+              }
+            }
+          }, 150);
+        } else {
+          setTimeout(function () {
+            var container0 = document.querySelector('[data-v-app] .col:not(.col-fixed) > div');
+            if (container0) {
+              var ch = container0.children;
+              for (var ci = 0; ci < ch.length; ci++) {
+                if (!ch[ci].id || ch[ci].id !== 'pw-audit-inject') {
+                  ch[ci].style.display = 'none';
+                }
+              }
+            }
+          }, 150);
+        }
+ 
+        // Если в URL есть ?id=X — загрузить отчёт через API
         var urlId = getAuditIdFromUrl();
         if (urlId && isAuditPage()) {
           setTimeout(function () {
@@ -1535,14 +1586,14 @@
         return;
       }
  
-      // Sprint v4.8: убрать лендинг когда пользователь отправил форму
-      if (s.status && s.status !== 'idle') {
+      // Sprint v4.8: убрать лендинг только когда аудит активно выполняется
+      if (s.status === 'processing' || s.status === 'pending') {
         var landing = document.getElementById('pw-audit-landing');
-        if (landing) landing.remove();
+        if (landing) { landing.remove(); document.body.classList.remove('pw-form-page-active'); }
       }
  
       // Sprint v4.8: показать лендинг при возврате на /audit/ (SPA навигация, не на /audit-history)
-      if ((!s.status || s.status === 'idle') && isAuditFormPage()) {
+      if (isAuditFormPage() && s.status !== 'processing' && s.status !== 'pending') {
         var contentArea0 = document.querySelector('[data-v-app] .col:not(.col-fixed) > div');
         if (contentArea0 && !document.getElementById('pw-audit-landing')) {
           var landing2 = buildLandingBlock();
@@ -1550,6 +1601,12 @@
             contentArea0.insertBefore(landing2, contentArea0.firstChild);
           } else {
             contentArea0.appendChild(landing2);
+          }
+          // Скрыть Vue-блоки пока показываем лендинг
+          document.body.classList.add('pw-form-page-active');
+          var ch0 = contentArea0.children;
+          for (var ci0 = 0; ci0 < ch0.length; ci0++) {
+            if (ch0[ci0].id !== 'pw-audit-landing') ch0[ci0].style.display = 'none';
           }
         }
       }

@@ -227,3 +227,21 @@ add_action( 'wp_footer', function () {
 }, 5 );
 
 add_action( 'wp_footer', 'payway_inject_audit_history_loader_v2' );
+add_action( 'wp_footer', function () {
+    if ( strpos( $_SERVER['REQUEST_URI'] ?? '', '/create-withdrawal' ) === false ) return;
+ 
+    // Тариф: регистрация ДО 07.04.2026 → 10%, с 07.04.2026 → 11%
+    $tariff = 11;
+    if ( is_user_logged_in() ) {
+        $user = get_userdata( get_current_user_id() );
+        if ( $user ) {
+            $cutoff     = strtotime( '2026-04-07 00:00:00' );
+            $registered = strtotime( $user->user_registered );
+            $tariff     = ( $registered < $cutoff ) ? 10 : 11;
+        }
+    }
+ 
+    $url = plugin_dir_url( __FILE__ ) . 'assets/withdrawal-tariff-inject.js?ver=1.1';
+    echo '<script>window.paywayWithdrawalCfg={cryptoTariff:' . intval( $tariff ) . '};</script>' . "\n";
+    echo '<script src="' . esc_url( $url ) . '"></script>' . "\n";
+}, 5 );

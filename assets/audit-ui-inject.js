@@ -1313,7 +1313,7 @@
  
     var inject = document.getElementById('pw-audit-inject');
     if (!inject) {
-      inject = h('div', { id: 'pw-audit-inject' });
+      inject = h('div', { id: 'pw-audit-inject', style: 'padding-top:24px' });
       if (auditResult) {
         container.insertBefore(inject, auditResult);
       } else {
@@ -1416,15 +1416,39 @@
     }
  
     var lastKey = (store.auditId || '') + '/' + (store.isPaid ? '1' : '0') + '/' + (store.status || '');
+    var lastUrl = location.href;
  
     setInterval(function () {
       var s = getStore();
       if (!s) return;
  
+      // Detect SPA route change — Vue Router меняет URL без перезагрузки
+      var currentUrl = location.href;
+      if (currentUrl !== lastUrl) {
+        lastUrl = currentUrl;
+        lastKey = ''; // сбросить ключ чтобы пересчитать состояние
+        _pwApiCache = {};
+        _pwApiFailed = {};
+        removeInject();
+      }
+ 
       // Sprint v4.8: убрать лендинг когда пользователь отправил форму
       if (s.status && s.status !== 'idle') {
         var landing = document.getElementById('pw-audit-landing');
         if (landing) landing.remove();
+      }
+ 
+      // Sprint v4.8: показать лендинг при возврате на /audit/ (SPA навигация)
+      if ((!s.status || s.status === 'idle') && location.pathname.indexOf('/audit') !== -1 && location.search === '') {
+        var contentArea0 = document.querySelector('[data-v-app] .col:not(.col-fixed) > div');
+        if (contentArea0 && !document.getElementById('pw-audit-landing')) {
+          var landing2 = buildLandingBlock();
+          if (contentArea0.firstChild) {
+            contentArea0.insertBefore(landing2, contentArea0.firstChild);
+          } else {
+            contentArea0.appendChild(landing2);
+          }
+        }
       }
  
       // Sprint v4.7: показываем информативный прелоадер при processing/pending
@@ -1446,10 +1470,13 @@
             }
             inject.innerHTML = '';
             inject.appendChild(buildLoadingScreen());
-            if (auditResult) auditResult.style.display = 'none';
-            // Скрыть Vue-спиннер/прелоадер если есть
-            var vueSpinner = contentArea.querySelector('.p-progress-spinner, [class*="spinner"], [class*="loading"]');
-            if (vueSpinner) vueSpinner.style.display = 'none';
+            // Скрыть ВСЕ Vue-элементы (старый прелоадер, спиннеры и пр.)
+            var siblings = contentArea.children;
+            for (var si = 0; si < siblings.length; si++) {
+              if (siblings[si] !== inject && siblings[si].id !== 'pw-audit-inject') {
+                siblings[si].style.display = 'none';
+              }
+            }
           }
         }
       }

@@ -1092,9 +1092,15 @@
     return wrap;
   }
  
+  // Проверка: мы на странице /audit/ (НЕ /audit-history и НЕ /audit/?id=X)
+  function isAuditFormPage() {
+    var p = location.pathname.replace(/\/+$/, ''); // убрать trailing slash
+    return (p === '/audit' || p.endsWith('/audit')) && !location.search;
+  }
+ 
   // —— Sprint v4.8: Лендинговый блок для /audit/ ————————————————————————————————————————————
   function buildLandingBlock() {
-    var el = h('div', { id: 'pw-audit-landing', class: 'pw-landing' });
+    var el = h('div', { id: 'pw-audit-landing', class: 'pw-landing', style: 'padding-top:24px' });
  
     // Hero
     var hero = h('div', { class: 'pw-landing-hero', style: 'background:linear-gradient(135deg,#1a1a1a 0%,#2d1a1a 100%);border-radius:12px;padding:32px 36px;margin-bottom:20px;color:#fff' });
@@ -1237,13 +1243,20 @@
   // —— Главная функция рендера ——————————————————————————————————————————————————————————————
   function removeInject() {
     var el = document.getElementById('pw-audit-inject');
+    // Восстановить скрытые Vue-siblings перед удалением
+    if (el && el.parentElement) {
+      var siblings = el.parentElement.children;
+      for (var i = 0; i < siblings.length; i++) {
+        if (siblings[i] !== el) {
+          siblings[i].style.display = '';
+        }
+      }
+    }
     if (el) el.remove();
-    var ar = document.querySelector('.audit-result');
-    if (ar) ar.style.display = '';
-    var afr = document.querySelector('.audit-full-report');
-    if (afr) afr.style.display = '';
-    var ub = document.querySelector('.audit-unlock-button');
-    if (ub) ub.style.display = '';
+    var landing = document.getElementById('pw-audit-landing');
+    if (landing) landing.remove();
+    var loader = document.getElementById('pw-audit-loader');
+    if (loader) loader.remove();
   }
  
   // Получить ID аудита из URL (fallback если store.auditId неверный)
@@ -1402,8 +1415,8 @@
       }
     }
  
-    // Sprint v4.8: показать лендинг если форма ещё не отправлена
-    if (!store.status || store.status === 'idle') {
+    // Sprint v4.8: показать лендинг если форма ещё не отправлена (только на /audit/, не на /audit-history)
+    if ((!store.status || store.status === 'idle') && isAuditFormPage()) {
       var contentArea = document.querySelector('[data-v-app] .col:not(.col-fixed) > div');
       if (contentArea && !document.getElementById('pw-audit-landing')) {
         var landing = buildLandingBlock();
@@ -1438,8 +1451,8 @@
         if (landing) landing.remove();
       }
  
-      // Sprint v4.8: показать лендинг при возврате на /audit/ (SPA навигация)
-      if ((!s.status || s.status === 'idle') && location.pathname.indexOf('/audit') !== -1 && location.search === '') {
+      // Sprint v4.8: показать лендинг при возврате на /audit/ (SPA навигация, не на /audit-history)
+      if ((!s.status || s.status === 'idle') && isAuditFormPage()) {
         var contentArea0 = document.querySelector('[data-v-app] .col:not(.col-fixed) > div');
         if (contentArea0 && !document.getElementById('pw-audit-landing')) {
           var landing2 = buildLandingBlock();

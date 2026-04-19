@@ -1304,7 +1304,7 @@
   }
  
   function renderReport(store, _apiData) {
-    var report = store.report;
+    var report = store.report || (_apiData && _apiData.report) || _apiData || null;
     if (!report) return;
  
     var auditResult = document.querySelector('.audit-result');
@@ -1444,16 +1444,32 @@
         if (s.status === 'done' && s.report) {
           lastKey = currKey;
           renderReport(s);
-        } else if (s.status === 'done' && !s.report) {
-          // Не обновляем lastKey — ждём пока report загрузится
+        } else if (s.status === 'done' && !s.report && s.auditId) {
+          // Store не содержит report — грузим из API
+          lastKey = currKey;
+          _pwApiCache = {};
+          fetchAuditFull(s.auditId, function(apiData) {
+            if (apiData && apiData.report) {
+              renderReport(s, apiData);
+            } else if (apiData && apiData.id) {
+              // API вернул данные в корне (не вложенные в report)
+              renderReport(s, { report: apiData, preview: apiData.preview || {} });
+            }
+          });
         } else if (s.status !== 'processing' && s.status !== 'pending') {
           lastKey = currKey;
           removeInject();
         }
       }
  
-      if (!document.getElementById('pw-audit-inject') && s.status === 'done' && s.report) {
-        renderReport(s);
+      if (!document.getElementById('pw-audit-inject') && s.status === 'done' && (s.report || s.auditId)) {
+        if (s.report) {
+          renderReport(s);
+        } else if (s.auditId) {
+          fetchAuditFull(s.auditId, function(apiData) {
+            if (apiData) renderReport(s, apiData);
+          });
+        }
       }
     }, 800);
   }

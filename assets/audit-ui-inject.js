@@ -47,6 +47,7 @@
     var style = document.createElement('style');
     style.id = CSS_ID;
     style.textContent = [
+      '[data-v-app] .col:not(.col-fixed) > div{padding-top:24px}',
       '#pw-audit-inject{font-family:"Inter",system-ui,sans-serif;margin-bottom:16px}',
       '#pw-audit-inject *{box-sizing:border-box}',
  
@@ -1140,7 +1141,7 @@
  
   // —— Sprint v4.8: Лендинговый блок для /audit/ ————————————————————————————————————————————
   function buildLandingBlock() {
-    var el = h('div', { id: 'pw-audit-landing', class: 'pw-landing', style: 'padding-top:24px' });
+    var el = h('div', { id: 'pw-audit-landing', class: 'pw-landing' });
  
     // Hero
     var hero = h('div', { class: 'pw-landing-hero', style: 'background:linear-gradient(135deg,#1a1a1a 0%,#2d1a1a 100%);border-radius:12px;padding:32px 36px;margin-bottom:20px;color:#fff' });
@@ -1381,7 +1382,7 @@
  
     var inject = document.getElementById('pw-audit-inject');
     if (!inject) {
-      inject = h('div', { id: 'pw-audit-inject', style: 'padding-top:24px' });
+      inject = h('div', { id: 'pw-audit-inject' });
       if (auditResult) {
         container.insertBefore(inject, auditResult);
       } else {

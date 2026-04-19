@@ -562,18 +562,16 @@
         var id = (report.id != null ? report.id : null) || (st.auditId != null ? st.auditId : null);
         st.unlockReport(id).then(function () {
           var s = getStore();
-          if (s && s.report) {
-            // Sprint v4.7: если full уже есть — рендерим сразу, иначе грузим из API
-            if (s.full) {
-              renderReport(s);
+          var fetchId = getAuditIdFromUrl() || (s && s.auditId) || id;
+          _pwApiCache = {}; // сбросить кэш чтобы загрузить свежие данные
+          fetchAuditFull(fetchId, function(apiData) {
+            if (apiData && !apiData._error) {
+              renderReport(s || {}, apiData);
             } else {
-              var fetchId = getAuditIdFromUrl() || (s.auditId) || id;
-              _pwApiCache = {}; // сбросить кэш чтобы загрузить свежие данные
-              fetchAuditFull(fetchId, function(apiData) {
-                renderReport(s, apiData || {});
-              });
+              // Fallback: перезагрузить страницу
+              window.location.reload();
             }
-          }
+          });
         }).catch(function (err) {
           btn.disabled = false;
           btn.textContent = btnText;

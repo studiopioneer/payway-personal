@@ -528,17 +528,30 @@
     var gate     = h('div', { class: 'pw-blur-gate' });
     var gateText = h('div', { class: 'pw-blur-gate-text' }, 'Детальный разбор и рекомендации скрыты');
  
-    var unlockInfo = (report.unlock_info) || (store && store.unlockInfo) || {};
-    var balance    = Number(unlockInfo.balance || 0);
-    var btnText    = 'Открыть полный отчёт — $1.00';
-    if (balance > 0) {
+    var unlockInfo    = (report.unlock_info) || (store && store.unlockInfo) || {};
+    var balance       = Number(unlockInfo.balance || 0);
+    var creditStatus  = unlockInfo.credit_status || {};
+    var freeRemaining = creditStatus.free_remaining || 0;
+    var freeTotal     = creditStatus.free_total || 3;
+    var btnText;
+    if (balance >= 1) {
       btnText = 'Открыть полный отчёт — $1.00 (баланс: $' + balance.toFixed(2) + ')';
     } else if (unlockInfo.credit_available) {
-      btnText = 'Получить отчёт (бесплатно)';
+      btnText = 'Получить бесплатный отчёт (' + freeRemaining + ' из ' + freeTotal + ' осталось)';
+    } else if (creditStatus.daily_used) {
+      btnText = 'Следующий бесплатный отчёт — завтра';
+    } else {
+      btnText = 'Бесплатные отчёты исчерпаны — пополните баланс';
     }
  
+    var canUnlock = balance >= 1 || !!unlockInfo.credit_available;
     var errMsg = h('div', { class: 'pw-unlock-error', style: 'display:none' });
     var btn = h('button', { class: 'pw-unlock-btn' }, btnText);
+    if (!canUnlock) {
+      btn.disabled = true;
+      btn.style.opacity = '0.5';
+      btn.style.cursor = 'default';
+    }
  
     btn.addEventListener('click', function () {
       btn.disabled = true;
@@ -1081,6 +1094,55 @@
     return wrap;
   }
  
+  // —— Sprint v4.8: Лендинговый блок для /audit/ ————————————————————————————————————————————
+  function buildLandingBlock() {
+    var el = h('div', { id: 'pw-audit-landing', class: 'pw-landing' });
+ 
+    // Hero
+    var hero = h('div', { class: 'pw-landing-hero', style: 'background:linear-gradient(135deg,#1a1a1a 0%,#2d1a1a 100%);border-radius:12px;padding:32px 36px;margin-bottom:20px;color:#fff' });
+    hero.appendChild(h('div', { style: 'font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#E8192C;margin-bottom:10px' }, 'Инструмент для контентмейкеров'));
+    hero.appendChild(h('div', { style: 'font-size:26px;font-weight:700;line-height:1.3;margin-bottom:10px' }, 'Узнайте, готов ли ваш канал к монетизации через AdSense'));
+    hero.appendChild(h('div', { style: 'font-size:14px;color:#aaa;line-height:1.6;max-width:520px' }, 'Полный аудит за 1\u20132 минуты. Анализируем 20+ параметров канала через YouTube API и GPT-4o. Получите конкретные рекомендации \u2014 не общие советы, а точные числа.'));
+    var badge = h('div', { style: 'display:inline-flex;align-items:center;gap:8px;background:rgba(232,25,44,.15);border:1px solid rgba(232,25,44,.3);border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;color:#ff6b7a;margin-top:16px' }, '\u2605 3 полных отчёта бесплатно \u00b7 1 в день');
+    hero.appendChild(badge);
+    el.appendChild(hero);
+ 
+    // Grid карточек
+    var grid = h('div', { style: 'display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px' });
+ 
+    var cards = [
+      { icon: '\u2705', title: 'Допуск к монетизации', text: 'Проверяем 6 обязательных критериев: возраст канала, регулярность публикаций, верификацию, статус madeForKids и другие.' },
+      { icon: '\u26A0\uFE0F', title: 'Риски демонетизации', text: 'Выявляем признаки reused-контента, одинаковую длину видео, аномальный ER и другие сигналы для отключения монетизации.' },
+      { icon: '\u00A9\uFE0F', title: 'Авторские права', text: 'Анализируем теги, названия и тематику на упоминание защищённых брендов, фильмов и франшиз. Предупреждаем о рисках Content ID страйков.' }
+    ];
+ 
+    cards.forEach(function(c) {
+      var card = h('div', { style: 'background:#fff;border:1px solid #e8e8e8;border-radius:10px;padding:16px 18px' });
+      card.appendChild(h('div', { style: 'font-size:22px;margin-bottom:8px' }, c.icon));
+      card.appendChild(h('div', { style: 'font-size:13px;font-weight:600;color:#1a1a1a;margin-bottom:4px' }, c.title));
+      card.appendChild(h('div', { style: 'font-size:12px;color:#888;line-height:1.5' }, c.text));
+      grid.appendChild(card);
+    });
+    el.appendChild(grid);
+ 
+    // Tech блок
+    var tech = h('div', { style: 'background:#f9fafb;border:1px solid #f0f0f0;border-radius:10px;padding:16px 18px;display:flex;align-items:center;gap:24px;flex-wrap:wrap' });
+    tech.appendChild(h('div', { style: 'font-size:11px;font-weight:600;color:#bbb;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap' }, 'Используем'));
+    var chips = h('div', { style: 'display:flex;gap:10px;flex-wrap:wrap' });
+    ['YouTube Data API v3', 'GPT-4o', '20 видео с метриками', 'PHP анализ reused-сигналов', 'AdSense критерии'].forEach(function(t) {
+      chips.appendChild(h('span', { style: 'background:#fff;border:1px solid #e8e8e8;border-radius:6px;padding:4px 10px;font-size:12px;color:#555;font-weight:500' }, t));
+    });
+    tech.appendChild(chips);
+    el.appendChild(tech);
+ 
+    // Адаптив: mobile 1 колонка
+    var style = document.createElement('style');
+    style.textContent = '@media(max-width:768px){#pw-audit-landing .pw-landing-grid,#pw-audit-landing [style*="grid-template-columns"]{grid-template-columns:1fr!important}}';
+    el.appendChild(style);
+ 
+    return el;
+  }
+ 
   // —— Sprint v4.7: Информативный прелоадер ——————————————————————————————————————————————————
   function buildLoadingScreen() {
     var el = h('div', { id: 'pw-audit-loader', style: 'padding:24px' });
@@ -1324,11 +1386,30 @@
       renderReport(store);
     }
  
+    // Sprint v4.8: показать лендинг если форма ещё не отправлена
+    if (!store.status || store.status === 'idle') {
+      var contentArea = document.querySelector('[data-v-app] .col:not(.col-fixed) > div');
+      if (contentArea && !document.getElementById('pw-audit-landing')) {
+        var landing = buildLandingBlock();
+        if (contentArea.firstChild) {
+          contentArea.insertBefore(landing, contentArea.firstChild);
+        } else {
+          contentArea.appendChild(landing);
+        }
+      }
+    }
+ 
     var lastKey = (store.auditId || '') + '/' + (store.isPaid ? '1' : '0') + '/' + (store.status || '');
  
     setInterval(function () {
       var s = getStore();
       if (!s) return;
+ 
+      // Sprint v4.8: убрать лендинг когда пользователь отправил форму
+      if (s.status && s.status !== 'idle') {
+        var landing = document.getElementById('pw-audit-landing');
+        if (landing) landing.remove();
+      }
  
       // Sprint v4.7: показываем информативный прелоадер при processing/pending
       if (s.status === 'processing' || s.status === 'pending') {

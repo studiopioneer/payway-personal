@@ -61,7 +61,22 @@ class PW_Audit_REST {
     }
 
     public function get_nonce() {
-        // Генерируем authToken для JS — работает даже если страница закешена (PHP здесь всегда свежий)
+        // Диагностика: что видит сервер
+        $cookie_keys    = array_keys( $_COOKIE );
+        $wp_cookie_name = '';
+        $wp_cookie_val  = '';
+        foreach ( $_COOKIE as $name => $val ) {
+            if ( strpos( $name, 'wordpress_logged_in_' ) === 0 ) {
+                $wp_cookie_name = $name;
+                $wp_cookie_val  = substr( $val, 0, 20 ) . '...'; // первые 20 символов
+                break;
+            }
+        }
+        $cookie_auth_uid = $wp_cookie_name
+            ? wp_validate_auth_cookie( $_COOKIE[ $wp_cookie_name ], 'logged_in' )
+            : 'no_cookie';
+
+        // Генерируем authToken
         $auth_token = null;
         $uid = get_current_user_id();
         if ( $uid ) {
@@ -75,6 +90,14 @@ class PW_Audit_REST {
                 'nonce'      => wp_create_nonce( 'wp_rest' ),
                 'is_admin'   => current_user_can( 'manage_options' ),
                 'auth_token' => $auth_token,
+                '_debug'     => [
+                    'uid'             => $uid,
+                    'cookies_count'   => count( $cookie_keys ),
+                    'cookie_names'    => $cookie_keys,
+                    'wp_cookie_found' => ! empty( $wp_cookie_name ),
+                    'wp_cookie_name'  => $wp_cookie_name,
+                    'cookie_auth_uid' => $cookie_auth_uid,
+                ],
             ],
         ] );
     }

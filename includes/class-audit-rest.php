@@ -61,11 +61,20 @@ class PW_Audit_REST {
     }
 
     public function get_nonce() {
+        // Генерируем authToken для JS — работает даже если страница закешена (PHP здесь всегда свежий)
+        $auth_token = null;
+        $uid = get_current_user_id();
+        if ( $uid ) {
+            $token = wp_generate_password( 32, false );
+            set_transient( 'payway_tok_' . md5( $token ), $uid, 2 * HOUR_IN_SECONDS );
+            $auth_token = $token;
+        }
         return rest_ensure_response( [
             'success' => true,
             'data'    => [
-                'nonce'    => wp_create_nonce( 'wp_rest' ),
-                'is_admin' => current_user_can( 'manage_options' ),
+                'nonce'      => wp_create_nonce( 'wp_rest' ),
+                'is_admin'   => current_user_can( 'manage_options' ),
+                'auth_token' => $auth_token,
             ],
         ] );
     }

@@ -1202,28 +1202,44 @@
       document.body.appendChild(overlay);
  
       // POST /wp-json/payway/v1/audit (синхронный, ответ через ~60-90 сек)
-      var nonce = (window.paywayAuditCfg && window.paywayAuditCfg.nonce) || _pwCapturedNonce || '';
-      fetch('/wp-json/payway/v1/audit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce },
-        body: JSON.stringify({ channel_url: channelUrl })
-      })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (data.code) {
-          // API-ошибка (rate limit, неверный URL и т.д.)
-          alert(data.message || 'Ошибка при запуске аудита. Попробуйте ещё раз.');
+      // Получаем свежий нонс через AJAX (надёжнее чем window.paywayAuditCfg.nonce который может устареть)
+      function doAuditPost(nonce) {
+        fetch('/wp-json/payway/v1/audit', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce },
+          body: JSON.stringify({ channel_url: channelUrl })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.code) {
+            alert(data.message || 'Ошибка при запуске аудита. Попробуйте ещё раз.');
+            window.location.href = '/audit';
+            return;
+          }
+          var auditId = data.audit_id || data.id;
+          window.location.href = '/audit?id=' + auditId;
+        })
+        .catch(function () {
+          alert('Ошибка сети. Проверьте подключение и попробуйте снова.');
           window.location.href = '/audit';
-          return;
-        }
-        var auditId = data.audit_id || data.id;
-        // Переходим на страницу отчёта (полная загрузка — надёжнее SPA-навигации)
-        window.location.href = '/audit?id=' + auditId;
-      })
-      .catch(function () {
-        alert('Ошибка сети. Проверьте подключение и попробуйте снова.');
-        window.location.href = '/audit';
-      });
+        });
+      }
+ 
+      // Сначала получаем свежий нонс, потом делаем POST
+      fetch('/wp-admin/admin-ajax.php?action=payway_fresh_nonce', { credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          var freshNonce = (d && d.data && d.data.nonce) ||
+                           (window.paywayAuditCfg && window.paywayAuditCfg.nonce) ||
+                           _pwCapturedNonce || '';
+          doAuditPost(freshNonce);
+        })
+        .catch(function () {
+          // Если AJAX недоступен — пробуем с имеющимся нонсом
+          var fallbackNonce = (window.paywayAuditCfg && window.paywayAuditCfg.nonce) || _pwCapturedNonce || '';
+          doAuditPost(fallbackNonce);
+        });
     });
  
     // Grid карточек
@@ -1583,6 +1599,7 @@
     var lastKey = (store.auditId || '') + '/' + (store.isPaid ? '1' : '0') + '/' + (store.status || '');
     var lastUrl = location.href;
     var _wasProcessing = false; // true если мы видели pending/processing — значит аудит запущен на ЭТОЙ странице
+    var _pwFetchingFromUrl = false; // true пока идёт API-запрос по URL ?id=X (SPA-навигация из истории)
  
     setInterval(function () {
       // Detect SPA route change ПЕРВЫМ — до проверки store (store может не существовать на других страницах)
@@ -1623,19 +1640,31 @@
           }, 150);
         }
  
-        // Если в URL есть ?id=X — загрузить отчёт через API
+        // Если в URL есть ?id=X — немедленно показать лоадер и загрузить отчёт (SPA-навигация из истории)
         var urlId = getAuditIdFromUrl();
         if (urlId && isAuditPage()) {
+          _pwFetchingFromUrl = true;
           setTimeout(function () {
-            if (!document.getElementById('pw-audit-inject') && isAuditPage()) {
-              fetchAuditFull(urlId, function (apiData) {
-                if (apiData && !apiData._error && isAuditPage()) {
-                  var st = getStore() || {};
-                  renderReport(st, apiData);
-                }
-              });
+            if (!isAuditPage()) { _pwFetchingFromUrl = false; return; }
+            // Показываем loading screen пока ждём API
+            var _cont = document.querySelector('[data-v-app] .col:not(.col-fixed) > div');
+            if (_cont && !document.getElementById('pw-audit-inject')) {
+              var _inj = h('div', { id: 'pw-audit-inject' });
+              _cont.appendChild(_inj);
+              _inj.appendChild(buildLoadingScreen());
             }
-          }, 400);
+            fetchAuditFull(urlId, function (apiData) {
+              _pwFetchingFromUrl = false;
+              if (apiData && !apiData._error && isAuditPage()) {
+                var st = getStore() || {};
+                renderReport(st, apiData);
+              } else if (isAuditPage()) {
+                // Fallback: очищаем лоадер и показываем ошибку
+                var _inj2 = document.getElementById('pw-audit-inject');
+                if (_inj2) _inj2.innerHTML = '<p style="color:#dc2626;padding:24px;font-size:13px">Не удалось загрузить отчёт. <a href="/audit?id=' + urlId + '" style="color:#E8192C">Обновить страницу</a></p>';
+              }
+            });
+          }, 200);
         }
       }
  
@@ -1745,11 +1774,11 @@
           });
         } else if (s.status !== 'processing' && s.status !== 'pending') {
           lastKey = currKey;
-          removeInject();
+          if (!_pwFetchingFromUrl) removeInject(); // не сбрасываем пока идёт URL-fetch
         }
       }
  
-      if (!document.getElementById('pw-audit-inject') && s.status === 'done' && (s.report || s.auditId) && canRenderReport) {
+      if (!document.getElementById('pw-audit-inject') && s.status === 'done' && (s.report || s.auditId) && canRenderReport && !_pwFetchingFromUrl) {
         if (s.auditId) {
           fetchAuditFull(s.auditId, function(apiData) {
             if (!isAuditPage()) return;

@@ -172,13 +172,35 @@ add_action( 'template_redirect', function () {
 	}
 } );
 // ── Запасной фильтр: сбрасываем ошибки аутентификации для наших endpoints ─────
-// Приоритет 200 — после всех плагинов. Если determine_current_user сработал
-// и юзер установлен — возвращаем null (OK). Если нет — не блокируем.
+// Приоритет 200 — после всех плагинов. Если юзер установлен — снимаем любую ошибку.
 add_filter( 'rest_authentication_errors', function ( $result ) {
     if ( strpos( $_SERVER['REQUEST_URI'] ?? '', '/payway/v1/' ) === false ) return $result;
+    // Попытка аутентификации через X-Payway-Token (работает даже если куки стриплены сервером)
+    if ( ! get_current_user_id() ) {
+        $token = $_SERVER['HTTP_X_PAYWAY_TOKEN'] ?? '';
+        if ( $token ) {
+            $uid = get_transient( 'payway_tok_' . md5( $token ) );
+            if ( $uid ) {
+                wp_set_current_user( (int) $uid );
+            }
+        }
+    }
     if ( get_current_user_id() ) return null; // юзер аутентифицирован — снимаем любую ошибку
     return $result;
 }, 200 );
+
+// ── Генерация auth-токена для /audit страниц ──────────────────────────────────
+// Токен передаётся в JS и отправляется как X-Payway-Token заголовок.
+// Работает даже если сервер стрипает куки для /wp-json/ запросов.
+add_action( 'wp_head', function () {
+    $uri = $_SERVER['REQUEST_URI'] ?? '';
+    if ( strpos( $uri, '/audit' ) === false && strpos( $uri, '/account' ) === false ) return;
+    $uid = get_current_user_id();
+    if ( ! $uid ) return;
+    $token = wp_generate_password( 32, false );
+    set_transient( 'payway_tok_' . md5( $token ), $uid, 2 * HOUR_IN_SECONDS );
+    echo '<script>window.paywayAuditCfg = window.paywayAuditCfg || {}; window.paywayAuditCfg.authToken = "' . esc_js( $token ) . '";</script>' . "\n";
+}, 1 ); // priority 1 — раньше основного wp_head inject с nonce
 
 add_action( 'wp_ajax_payway_fresh_nonce', function () {
     wp_send_json_success( [

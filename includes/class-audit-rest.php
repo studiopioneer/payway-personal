@@ -468,19 +468,26 @@ public function unlock_report( WP_REST_Request $request ) {
  
     public function check_audit_owner( WP_REST_Request $request ) {
         if ( is_user_logged_in() ) return true;
-        // Cookie-fallback: REST API иногда не аутентифицирует пользователя через стандартный механизм
+
+        // Cookie-fallback (стандартный WordPress механизм)
         foreach ( $_COOKIE as $name => $val ) {
             if ( strpos( $name, 'wordpress_logged_in_' ) === 0 ) {
                 $uid = wp_validate_auth_cookie( $val, 'logged_in' );
-                if ( $uid ) {
-                    wp_set_current_user( $uid );
-                    return true;
-                }
+                if ( $uid ) { wp_set_current_user( $uid ); return true; }
             }
         }
-        // Временный лог — убрать после диагностики
+
+        // Token-fallback: X-Payway-Token заголовок (работает если сервер стрипает куки для /wp-json/)
+        $token = $request->get_header( 'X-Payway-Token' );
+        if ( $token ) {
+            $uid = get_transient( 'payway_tok_' . md5( $token ) );
+            if ( $uid ) { wp_set_current_user( (int) $uid ); return true; }
+        }
+
+        // Временный лог — убрать после подтверждения работы
         error_log( 'PW_Audit FAILED. URI=' . ( $_SERVER['REQUEST_URI'] ?? '' )
             . ' Cookies=' . implode( ',', array_keys( $_COOKIE ) )
+            . ' HasToken=' . ( ! empty( $token ) ? 'yes' : 'no' )
             . ' UID=' . get_current_user_id() );
         return false;
     }

@@ -20,7 +20,7 @@ class PW_Audit_REST {
         register_rest_route( 'payway/v1', '/audit', [
             'methods'             => 'POST',
             'callback'            => [ $this, 'start_audit' ],
-            'permission_callback' => 'is_user_logged_in',
+            'permission_callback' => [ $this, 'check_audit_owner' ],
         ]);
 
         register_rest_route( 'payway/v1', '/nonce', [
@@ -50,13 +50,13 @@ class PW_Audit_REST {
         register_rest_route( 'payway/v1', '/audit/start', [
             'methods'             => 'POST',
             'callback'            => [ $this, 'start_audit' ],
-            'permission_callback' => 'is_user_logged_in',
+            'permission_callback' => [ $this, 'check_audit_owner' ],
         ]);
  
         register_rest_route( 'payway/v1', '/audit/history', [
             'methods'             => 'GET',
             'callback'            => [ $this, 'get_history' ],
-            'permission_callback' => 'is_user_logged_in',
+            'permission_callback' => [ $this, 'check_audit_owner' ],
         ]);
     }
 
@@ -467,6 +467,18 @@ public function unlock_report( WP_REST_Request $request ) {
     }
  
     public function check_audit_owner( WP_REST_Request $request ) {
-        return is_user_logged_in();
+        if ( is_user_logged_in() ) return true;
+        // Cookie-fallback: REST API иногда не аутентифицирует пользователя через стандартный механизм
+        foreach ( $_COOKIE as $name => $val ) {
+            if ( strpos( $name, 'wordpress_logged_in_' ) === 0 ) {
+                $uid = wp_validate_auth_cookie( $val, 'logged_in' );
+                if ( $uid ) {
+                    wp_set_current_user( $uid );
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }
+ 

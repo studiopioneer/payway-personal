@@ -1240,10 +1240,13 @@
       // POST /wp-json/payway/v1/audit (синхронный, ответ через ~60-90 сек)
       // Получаем свежий нонс через AJAX (надёжнее чем window.paywayAuditCfg.nonce который может устареть)
       function doAuditPost(nonce) {
+        var _hdrs = { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce };
+        var _tok = window.paywayAuditCfg && window.paywayAuditCfg.authToken;
+        if (_tok) _hdrs['X-Payway-Token'] = _tok;
         fetch('/wp-json/payway/v1/audit', {
           method: 'POST',
           credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce },
+          headers: _hdrs,
           body: JSON.stringify({ channel_url: channelUrl })
         })
         .then(function (r) { return r.json(); })
@@ -1476,9 +1479,12 @@
       return;
     }
  
+    var _fhdrs = nonce ? { 'X-WP-Nonce': nonce } : {};
+    var _ftok = window.paywayAuditCfg && window.paywayAuditCfg.authToken;
+    if (_ftok) _fhdrs['X-Payway-Token'] = _ftok;
     fetch('/wp-json/payway/v1/audit/' + auditId + '/status', {
       credentials: 'same-origin',
-      headers: nonce ? { 'X-WP-Nonce': nonce } : {}
+      headers: _fhdrs
     })
     .then(function (r) { return r.json(); })
     .then(function (d) {

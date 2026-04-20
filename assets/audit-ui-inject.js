@@ -31,6 +31,10 @@
           if (typeof d.data.is_admin !== 'undefined') {
             window.paywayAuditCfg.is_admin = !!d.data.is_admin;
           }
+          // Сохраняем authToken — генерируется сервером если пользователь авторизован
+          if (d.data.auth_token) {
+            window.paywayAuditCfg.authToken = d.data.auth_token;
+          }
           // После обновления нонса — перезапускаем Vue polling (он мог упасть с 401)
           try {
             var _el = document.querySelector('[data-v-app]');
@@ -1447,6 +1451,9 @@
           window.paywayAuditCfg.nonce = d.data.nonce;
           if (typeof d.data.is_admin !== 'undefined') {
             window.paywayAuditCfg.is_admin = !!d.data.is_admin;
+          }
+          if (d.data.auth_token) {
+            window.paywayAuditCfg.authToken = d.data.auth_token;
           }
           _pwNonceRefreshed = true;
         }

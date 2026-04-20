@@ -127,19 +127,36 @@ add_filter( 'template_include', function ( $template ) {
 	return $template;
 } );
 
-// ── Early cookie auth (priority 1 — до формирования nonce в wp_head) ─────────
+// ── Early cookie auth для обычных страниц (nonce создаётся для правильного юзера) ──
+// Только для НЕ-REST запросов. Для REST — хук determine_current_user ниже.
 add_action( 'init', function () {
+    $uri = $_SERVER['REQUEST_URI'] ?? '';
+    if ( strpos( $uri, '/wp-json/' ) !== false ) return; // REST обрабатывается отдельно
     if ( is_user_logged_in() ) return;
     foreach ( $_COOKIE as $name => $val ) {
         if ( strpos( $name, 'wordpress_logged_in_' ) === 0 ) {
             $uid = wp_validate_auth_cookie( $val, 'logged_in' );
-            if ( $uid ) {
-                wp_set_current_user( $uid );
-                break;
-            }
+            if ( $uid ) { wp_set_current_user( $uid ); break; }
         }
     }
 }, 1 );
+
+// ── Cookie auth для REST API через determine_current_user ─────────────────────
+// Хукаемся в determine_current_user (priority 20, после WP-дефолта 10).
+// Это заставляет auth_cookie_valid сработать → $wp_rest_auth_cookie = true →
+// rest_cookie_check_errors пропускает запрос без ошибки 403.
+add_filter( 'determine_current_user', function ( $user_id ) {
+    if ( $user_id ) return $user_id; // уже определён WordPress
+    $uri = $_SERVER['REQUEST_URI'] ?? '';
+    if ( strpos( $uri, '/payway/v1/' ) === false ) return $user_id; // только наши endpoints
+    foreach ( $_COOKIE as $name => $val ) {
+        if ( strpos( $name, 'wordpress_logged_in_' ) === 0 ) {
+            $uid = wp_validate_auth_cookie( $val, 'logged_in' ); // fires auth_cookie_valid
+            if ( $uid ) return $uid;
+        }
+    }
+    return $user_id;
+}, 20 );
 
 // ── Auth redirect ─────────────────────────────────────────────────────────────
 add_action( 'template_redirect', function () {
@@ -154,18 +171,14 @@ add_action( 'template_redirect', function () {
 		}
 	}
 } );
-// Cookie-auth для всех payway/v1 endpoints (обходит ограничения REST API для обычных пользователей)
+// ── Запасной фильтр: сбрасываем ошибки аутентификации для наших endpoints ─────
+// Приоритет 200 — после всех плагинов. Если determine_current_user сработал
+// и юзер установлен — возвращаем null (OK). Если нет — не блокируем.
 add_filter( 'rest_authentication_errors', function ( $result ) {
     if ( strpos( $_SERVER['REQUEST_URI'] ?? '', '/payway/v1/' ) === false ) return $result;
-    if ( get_current_user_id() ) return null; // уже аутентифицирован
-    foreach ( $_COOKIE as $name => $val ) {
-        if ( strpos( $name, 'wordpress_logged_in_' ) === 0 ) {
-            $uid = wp_validate_auth_cookie( $val, 'logged_in' );
-            if ( $uid ) { wp_set_current_user( $uid ); return null; }
-        }
-    }
-    return $result; // не блокируем, возвращаем исходный результат
-}, 150 );
+    if ( get_current_user_id() ) return null; // юзер аутентифицирован — снимаем любую ошибку
+    return $result;
+}, 200 );
 
 add_action( 'wp_ajax_payway_fresh_nonce', function () {
     wp_send_json_success( [

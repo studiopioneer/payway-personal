@@ -17,6 +17,36 @@
   if (window.__pwAuditInjectorLoaded) return;
   window.__pwAuditInjectorLoaded = true;
  
+  // —— Ранний сброс nonce (исправляет 401 при кешировании account.php) ————————————————————
+  // Если страница закеширована — nonce в window.paywayAuditCfg может быть чужим (admin).
+  // Получаем свежий нонс через /?payway_get_nonce=1 (init-hook, не wp-admin, работает для всех).
+  (function () {
+    try {
+      fetch('/?payway_get_nonce=1', { credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (!(d && d.success && d.data && d.data.nonce)) return;
+          window.paywayAuditCfg = window.paywayAuditCfg || {};
+          window.paywayAuditCfg.nonce = d.data.nonce;
+          if (typeof d.data.is_admin !== 'undefined') {
+            window.paywayAuditCfg.is_admin = !!d.data.is_admin;
+          }
+          // После обновления нонса — перезапускаем Vue polling (он мог упасть с 401)
+          try {
+            var _el = document.querySelector('[data-v-app]');
+            if (_el && _el.__vue_app__) {
+              var _p = _el.__vue_app__.config.globalProperties.$pinia;
+              var _s = _p && _p._s && _p._s.get('audit');
+              if (_s && typeof _s.pollStatus === 'function') {
+                setTimeout(function () { _s.pollStatus(); }, 80);
+              }
+            }
+          } catch (e) {}
+        })
+        .catch(function () { /* nonce из account.php остаётся */ });
+    } catch (e) {}
+  })();
+ 
   // —— Перехват nonce из Vue-запросов ——————————————————————————————————————————————————————
   // Vue-приложение делает API-запросы с валидным nonce. Перехватываем его для своих запросов.
   var _pwCapturedNonce = '';
@@ -1235,7 +1265,7 @@
       // Сначала получаем свежий нонс, потом делаем POST.
       // ВАЖНО: обновляем window.paywayAuditCfg.nonce ДО вызова doAuditPost,
       // потому что fetch-interceptor в account.php перезаписывает X-WP-Nonce из paywayAuditCfg.nonce.
-      fetch('/wp-admin/admin-ajax.php?action=payway_fresh_nonce', { credentials: 'same-origin' })
+      fetch('/?payway_get_nonce=1', { credentials: 'same-origin' })
         .then(function (r) { return r.json(); })
         .then(function (d) {
           var freshNonce = (d && d.data && d.data.nonce) ||
@@ -1406,7 +1436,7 @@
   // Получить свежий nonce + is_admin через admin-ajax (cookie-auth, не зависит от кеша страницы)
   function refreshNonce(cb) {
     if (_pwNonceRefreshed) { cb(); return; }
-    fetch('/wp-admin/admin-ajax.php?action=payway_fresh_nonce', { credentials: 'same-origin' })
+    fetch('/?payway_get_nonce=1', { credentials: 'same-origin' })
       .then(function (r) { return r.json(); })
       .then(function (d) {
         if (d && d.success && d.data && d.data.nonce) {

@@ -127,6 +127,20 @@ add_filter( 'template_include', function ( $template ) {
 	return $template;
 } );
 
+// ── Early cookie auth (priority 1 — до формирования nonce в wp_head) ─────────
+add_action( 'init', function () {
+    if ( is_user_logged_in() ) return;
+    foreach ( $_COOKIE as $name => $val ) {
+        if ( strpos( $name, 'wordpress_logged_in_' ) === 0 ) {
+            $uid = wp_validate_auth_cookie( $val, 'logged_in' );
+            if ( $uid ) {
+                wp_set_current_user( $uid );
+                break;
+            }
+        }
+    }
+}, 1 );
+
 // ── Auth redirect ─────────────────────────────────────────────────────────────
 add_action( 'template_redirect', function () {
 	if ( is_page( 'account' ) ) {
@@ -143,15 +157,14 @@ add_action( 'template_redirect', function () {
 // Cookie-auth для всех payway/v1 endpoints (обходит ограничения REST API для обычных пользователей)
 add_filter( 'rest_authentication_errors', function ( $result ) {
     if ( strpos( $_SERVER['REQUEST_URI'] ?? '', '/payway/v1/' ) === false ) return $result;
-    if ( ! get_current_user_id() ) {
-        foreach ( $_COOKIE as $name => $val ) {
-            if ( strpos( $name, 'wordpress_logged_in_' ) === 0 ) {
-                $uid = wp_validate_auth_cookie( $val, 'logged_in' );
-                if ( $uid ) { wp_set_current_user( $uid ); break; }
-            }
+    if ( get_current_user_id() ) return null; // уже аутентифицирован
+    foreach ( $_COOKIE as $name => $val ) {
+        if ( strpos( $name, 'wordpress_logged_in_' ) === 0 ) {
+            $uid = wp_validate_auth_cookie( $val, 'logged_in' );
+            if ( $uid ) { wp_set_current_user( $uid ); return null; }
         }
     }
-    return null;
+    return $result; // не блокируем, возвращаем исходный результат
 }, 150 );
 
 add_action( 'wp_ajax_payway_fresh_nonce', function () {

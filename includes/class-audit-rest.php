@@ -478,7 +478,10 @@ public function unlock_report( WP_REST_Request $request ) {
                 }
             }
         }
+        // Временный лог — убрать после диагностики
+        error_log( 'PW_Audit FAILED. URI=' . ( $_SERVER['REQUEST_URI'] ?? '' )
+            . ' Cookies=' . implode( ',', array_keys( $_COOKIE ) )
+            . ' UID=' . get_current_user_id() );
         return false;
     }
 }
- 

@@ -141,11 +141,40 @@ add_action( 'template_redirect', function () {
 	}
 } );
 // ── Fresh nonce endpoint (обходит кеш страницы) ──────────────────────────────
+// ── Fresh nonce endpoint ──────────────────────────────────────────────────────
+add_action( 'init', function () {
+    if ( ! isset( $_GET['payway_get_nonce'] ) ) return;
+    if ( ! is_user_logged_in() ) {
+        http_response_code( 401 );
+        header( 'Content-Type: application/json' );
+        echo json_encode( [ 'success' => false ] );
+        exit;
+    }
+    header( 'Content-Type: application/json' );
+    header( 'Cache-Control: no-store, no-cache, must-revalidate, max-age=0' );
+    echo json_encode( [
+        'success' => true,
+        'data'    => [
+            'nonce'    => wp_create_nonce( 'wp_rest' ),
+            'is_admin' => current_user_can( 'manage_options' ),
+        ],
+    ] );
+    exit;
+}, 1 );
+
 add_action( 'wp_ajax_payway_fresh_nonce', function () {
     wp_send_json_success( [
         'nonce'    => wp_create_nonce( 'wp_rest' ),
         'is_admin' => current_user_can( 'manage_options' ),
     ] );
+} );
+
+add_action( 'send_headers', function () {
+    $uri = $_SERVER['REQUEST_URI'] ?? '';
+    if ( strpos( $uri, '/audit' ) !== false || strpos( $uri, '/account' ) !== false ) {
+        header( 'Cache-Control: no-store, no-cache, must-revalidate, max-age=0' );
+        header( 'Pragma: no-cache' );
+    }
 } );
   
 // ── Audit UI v2: CSS + JS ──────────────────────────────────────

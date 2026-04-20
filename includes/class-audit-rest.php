@@ -22,6 +22,12 @@ class PW_Audit_REST {
             'callback'            => [ $this, 'start_audit' ],
             'permission_callback' => 'is_user_logged_in',
         ]);
+
+        register_rest_route( 'payway/v1', '/nonce', [
+    'methods'             => 'GET',
+    'callback'            => [ $this, 'get_nonce' ],
+    'permission_callback' => '__return_true',
+]);
  
         register_rest_route( 'payway/v1', '/audit/(?P<id>\d+)', [
             'methods'             => 'GET',
@@ -52,6 +58,16 @@ class PW_Audit_REST {
             'callback'            => [ $this, 'get_history' ],
             'permission_callback' => 'is_user_logged_in',
         ]);
+        
+        public function get_nonce() {
+    return rest_ensure_response( [
+        'success' => true,
+        'data'    => [
+            'nonce'    => wp_create_nonce( 'wp_rest' ),
+            'is_admin' => current_user_can( 'manage_options' ),
+        ],
+    ] );
+}
     }
  
     // ─────────────────────────────────────────────────────────

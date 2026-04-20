@@ -140,27 +140,17 @@ add_action( 'template_redirect', function () {
 		}
 	}
 } );
-// ── Fresh nonce endpoint (обходит кеш страницы) ──────────────────────────────
-// ── Fresh nonce endpoint ──────────────────────────────────────────────────────
-add_action( 'init', function () {
-    if ( ! isset( $_GET['payway_get_nonce'] ) ) return;
-    if ( ! is_user_logged_in() ) {
-        http_response_code( 401 );
-        header( 'Content-Type: application/json' );
-        echo json_encode( [ 'success' => false ] );
-        exit;
+// Разрешаем cookie-auth без нонса для /payway/v1/nonce (получение нонса без нонса)
+add_filter( 'rest_authentication_errors', function ( $result ) {
+    if ( strpos( $_SERVER['REQUEST_URI'] ?? '', '/payway/v1/nonce' ) === false ) return $result;
+    foreach ( $_COOKIE as $name => $val ) {
+        if ( strpos( $name, 'wordpress_logged_in_' ) === 0 ) {
+            $uid = wp_validate_auth_cookie( $val, 'logged_in' );
+            if ( $uid ) { wp_set_current_user( $uid ); break; }
+        }
     }
-    header( 'Content-Type: application/json' );
-    header( 'Cache-Control: no-store, no-cache, must-revalidate, max-age=0' );
-    echo json_encode( [
-        'success' => true,
-        'data'    => [
-            'nonce'    => wp_create_nonce( 'wp_rest' ),
-            'is_admin' => current_user_can( 'manage_options' ),
-        ],
-    ] );
-    exit;
-}, 1 );
+    return null;
+}, 150 );
 
 add_action( 'wp_ajax_payway_fresh_nonce', function () {
     wp_send_json_success( [

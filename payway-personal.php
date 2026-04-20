@@ -189,18 +189,6 @@ add_filter( 'rest_authentication_errors', function ( $result ) {
     return $result;
 }, 200 );
 
-// ── Генерация auth-токена для /audit страниц ──────────────────────────────────
-// Токен передаётся в JS и отправляется как X-Payway-Token заголовок.
-// Работает даже если сервер стрипает куки для /wp-json/ запросов.
-add_action( 'wp_head', function () {
-    $uri = $_SERVER['REQUEST_URI'] ?? '';
-    if ( strpos( $uri, '/audit' ) === false && strpos( $uri, '/account' ) === false ) return;
-    $uid = get_current_user_id();
-    if ( ! $uid ) return;
-    $token = wp_generate_password( 32, false );
-    set_transient( 'payway_tok_' . md5( $token ), $uid, 2 * HOUR_IN_SECONDS );
-    echo '<script>window.paywayAuditCfg = window.paywayAuditCfg || {}; window.paywayAuditCfg.authToken = "' . esc_js( $token ) . '";</script>' . "\n";
-}, 1 ); // priority 1 — раньше основного wp_head inject с nonce
 
 add_action( 'wp_ajax_payway_fresh_nonce', function () {
     wp_send_json_success( [
@@ -219,18 +207,27 @@ add_action( 'send_headers', function () {
   
 // ── Audit UI v2: CSS + JS ──────────────────────────────────────
 
-// -- Audit nonce injection via wp_head (fetch interceptor) ----------------
+// -- Audit nonce + authToken injection via wp_head -------------------------
 add_action( 'wp_head', function () {
     if ( strpos( $_SERVER['REQUEST_URI'] ?? '', '/audit' ) === false ) return;
-    $nonce = wp_create_nonce( 'wp_rest' );
+    $nonce    = wp_create_nonce( 'wp_rest' );
     $is_admin = current_user_can( 'manage_options' ) ? 'true' : 'false';
-echo '<script>window.paywayAuditCfg={nonce:"' . esc_js( $nonce ) . '",is_admin:' . $is_admin . '};' .
+    // Генерируем authToken — работает даже если сервер стрипает куки для /wp-json/
+    $auth_token_js = 'null';
+    $uid = get_current_user_id();
+    if ( $uid ) {
+        $token = wp_generate_password( 32, false );
+        set_transient( 'payway_tok_' . md5( $token ), $uid, 2 * HOUR_IN_SECONDS );
+        $auth_token_js = '"' . esc_js( $token ) . '"';
+    }
+echo '<script>window.paywayAuditCfg={nonce:"' . esc_js( $nonce ) . '",is_admin:' . $is_admin . ',authToken:' . $auth_token_js . '};' .
          'window.__paywayFetchPatched||(window.__paywayFetchPatched=1,(function(){' .
          'var oF=window.fetch;window.fetch=function(u,o){' .
          'if(typeof u==="string"&&u.indexOf("/payway/v1/")>-1){' .
          'o=Object.assign({},o||{});var h=o.headers||{};' .
          'if(h instanceof Headers){h=Object.fromEntries(h.entries());}' .
          'h["X-WP-Nonce"]=(window.paywayAuditCfg&&window.paywayAuditCfg.nonce)||"";' .
+         'h["X-Payway-Token"]=(window.paywayAuditCfg&&window.paywayAuditCfg.authToken)||"";' .
          'o.headers=h;}return oF.call(this,u,o);}})());</script>';
 } );
 

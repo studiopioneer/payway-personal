@@ -13,6 +13,10 @@
 (function () {
   'use strict';
  
+  // —— Guard: не запускаться дважды (скрипт может быть загружен двойником через wp_enqueue + wp_footer) ——
+  if (window.__pwAuditInjectorLoaded) return;
+  window.__pwAuditInjectorLoaded = true;
+ 
   // —— Перехват nonce из Vue-запросов ——————————————————————————————————————————————————————
   // Vue-приложение делает API-запросы с валидным nonce. Перехватываем его для своих запросов.
   var _pwCapturedNonce = '';
@@ -48,8 +52,10 @@
     style.id = CSS_ID;
     style.textContent = [
       '[data-v-app] .col:not(.col-fixed) > div{padding-top:24px}',
-      /* Скрывать Vue-блоки при активном лендинге/инжекте (победить Vue reactivity) */
+      /* Скрывать Vue-блоки на форме (body.pw-form-page-active) — !important побеждает Vue-реактивность */
       '.pw-form-page-active [data-v-app] .col:not(.col-fixed) > div > *:not(#pw-audit-landing):not(#pw-audit-inject){display:none!important}',
+      /* Скрывать Vue-блоки на странице отчёта (body.pw-report-active) — надёжнее чем style.display */
+      '.pw-report-active [data-v-app] .col:not(.col-fixed) > div > *:not(#pw-audit-inject){display:none!important}',
       '#pw-audit-inject{font-family:"Inter",system-ui,sans-serif;margin-bottom:16px}',
       '#pw-audit-inject *{box-sizing:border-box}',
  
@@ -1377,21 +1383,14 @@
  
   // —— Главная функция рендера ——————————————————————————————————————————————————————————————
   function removeInject() {
+    // Снимаем CSS-классы — Vue сам восстановит видимость своих элементов
+    document.body.classList.remove('pw-report-active', 'pw-form-page-active');
     var el = document.getElementById('pw-audit-inject');
-    // Восстановить скрытые Vue-siblings перед удалением
-    if (el && el.parentElement) {
-      var siblings = el.parentElement.children;
-      for (var i = 0; i < siblings.length; i++) {
-        if (siblings[i] !== el) {
-          siblings[i].style.display = '';
-        }
-      }
-    }
     if (el) el.remove();
     var landing = document.getElementById('pw-audit-landing');
     if (landing) landing.remove();
-    var loader = document.getElementById('pw-audit-loader');
-    if (loader) loader.remove();
+    var overlay = document.getElementById('pw-audit-submit-overlay');
+    if (overlay) overlay.remove();
   }
  
   // Получить ID аудита из URL (fallback если store.auditId неверный)
@@ -1467,6 +1466,8 @@
   function renderReport(store, _apiData) {
     var report = store.report || (_apiData && _apiData.report) || _apiData || null;
     if (!report) return;
+    // CSS-класс надёжнее inline-style: Vue reactivity не может его переписать
+    document.body.classList.add('pw-report-active');
  
     // BUGFIX: Pinia store.report не содержит unlock_info и is_paid от REST API.
     // Всегда берём unlock_info из API (свежее, чем store) — исправляет баг с кнопкой "3 из 3" после использования.
@@ -1615,197 +1616,143 @@
  
     var lastKey = (store.auditId || '') + '/' + (store.isPaid ? '1' : '0') + '/' + (store.status || '');
     var lastUrl = location.href;
-    var _wasProcessing = false; // true если мы видели pending/processing — значит аудит запущен на ЭТОЙ странице
-    var _pwFetchingFromUrl = false; // true пока идёт API-запрос по URL ?id=X (SPA-навигация из истории)
+    var _wasProcessing = false; // true если мы видели pending/processing на этой странице
  
     setInterval(function () {
-      // Detect SPA route change ПЕРВЫМ — до проверки store (store может не существовать на других страницах)
+      // ── 1. SPA URL CHANGE (обрабатываем первым) ─────────────────────────────
       var currentUrl = location.href;
       if (currentUrl !== lastUrl) {
         lastUrl = currentUrl;
-        lastKey = ''; // сбросить ключ чтобы пересчитать состояние
+        lastKey = '';
         _pwApiCache = {};
         _pwApiFailed = {};
         _pwNonceRefreshed = false;
         _wasProcessing = false;
-        removeInject();
-      document.body.classList.remove('pw-form-page-active');
+        removeInject(); // снимает pw-report-active + pw-form-page-active через CSS-класс
  
-        // При переходе НЕ на audit — восстановить видимость Vue-элементов (иначе /account не показывается)
-        // При переходе НА audit — скрыть блок "Полный отчёт заблокирован"
-        if (!isAuditPage()) {
-          setTimeout(function () {
-            var container0 = document.querySelector('[data-v-app] .col:not(.col-fixed) > div');
-            if (container0) {
-              var ch = container0.children;
-              for (var ci = 0; ci < ch.length; ci++) {
-                ch[ci].style.display = '';
-              }
+        if (isAuditPage()) {
+          var _navUrlId = getAuditIdFromUrl();
+          if (_navUrlId) {
+            // Немедленно скрываем Vue через CSS-класс (надёжнее inline-style)
+            document.body.classList.add('pw-report-active');
+            // Подсказываем Vue загрузить правильный аудит в store
+            var _navS = getStore();
+            if (_navS) {
+              _navS.auditId = parseInt(_navUrlId);
+              if (typeof _navS.pollStatus === 'function') _navS.pollStatus();
             }
-          }, 150);
-        } else {
-          setTimeout(function () {
-            var container0 = document.querySelector('[data-v-app] .col:not(.col-fixed) > div');
-            if (container0) {
-              var ch = container0.children;
-              for (var ci = 0; ci < ch.length; ci++) {
-                if (!ch[ci].id || ch[ci].id !== 'pw-audit-inject') {
-                  ch[ci].style.display = 'none';
+            // Показываем loading screen и загружаем через наш API
+            setTimeout(function () {
+              if (!isAuditPage() || !getAuditIdFromUrl()) { removeInject(); return; }
+              var _cnt = document.querySelector('[data-v-app] .col:not(.col-fixed) > div');
+              if (_cnt && !document.getElementById('pw-audit-inject')) {
+                var _inj = h('div', { id: 'pw-audit-inject' });
+                _cnt.appendChild(_inj);
+                _inj.appendChild(buildLoadingScreen());
+              }
+              fetchAuditFull(_navUrlId, function (apiData) {
+                if (!isAuditPage()) { removeInject(); return; }
+                if (apiData && !apiData._error) {
+                  lastKey = 'nav-' + _navUrlId; // блокируем store-рендер со старыми данными
+                  renderReport(getStore() || {}, apiData);
+                } else {
+                  var _e = document.getElementById('pw-audit-inject');
+                  if (_e) _e.innerHTML = '<p style="color:#dc2626;padding:24px;font-size:13px">Не удалось загрузить отчёт. <a href="/audit?id=' + _navUrlId + '" style="color:#E8192C">Обновить</a></p>';
                 }
-              }
-            }
-          }, 150);
+              });
+            }, 250);
+          }
+          // /audit без id — лендинг покажется ниже в store-блоке
         }
- 
-        // Если в URL есть ?id=X — немедленно показать лоадер и загрузить отчёт (SPA-навигация из истории)
-        var urlId = getAuditIdFromUrl();
-        if (urlId && isAuditPage()) {
-          _pwFetchingFromUrl = true;
-          setTimeout(function () {
-            if (!isAuditPage()) { _pwFetchingFromUrl = false; return; }
-            // Показываем loading screen пока ждём API
-            var _cont = document.querySelector('[data-v-app] .col:not(.col-fixed) > div');
-            if (_cont && !document.getElementById('pw-audit-inject')) {
-              var _inj = h('div', { id: 'pw-audit-inject' });
-              _cont.appendChild(_inj);
-              _inj.appendChild(buildLoadingScreen());
-            }
-            fetchAuditFull(urlId, function (apiData) {
-              _pwFetchingFromUrl = false;
-              if (apiData && !apiData._error && isAuditPage()) {
-                var st = getStore() || {};
-                renderReport(st, apiData);
-              } else if (isAuditPage()) {
-                // Fallback: очищаем лоадер и показываем ошибку
-                var _inj2 = document.getElementById('pw-audit-inject');
-                if (_inj2) _inj2.innerHTML = '<p style="color:#dc2626;padding:24px;font-size:13px">Не удалось загрузить отчёт. <a href="/audit?id=' + urlId + '" style="color:#E8192C">Обновить страницу</a></p>';
-              }
-            });
-          }, 200);
-        }
+        return; // пропускаем store-polling в этот тик
       }
  
+      // ── 2. STORE POLLING ─────────────────────────────────────────────────────
       var s = getStore();
  
-      // На не-audit страницах store может не существовать — просто ждём
+      // На не-audit страницах store может отсутствовать
       if (!s) {
-        // Но лендинг можно показать даже без store
         if (isAuditFormPage() && !document.getElementById('pw-audit-landing')) {
           var contentAreaNoStore = document.querySelector('[data-v-app] .col:not(.col-fixed) > div');
           if (contentAreaNoStore) {
             var landingNoStore = buildLandingBlock();
-            if (contentAreaNoStore.firstChild) {
-              contentAreaNoStore.insertBefore(landingNoStore, contentAreaNoStore.firstChild);
-            } else {
-              contentAreaNoStore.appendChild(landingNoStore);
-            }
+            contentAreaNoStore.insertBefore(landingNoStore, contentAreaNoStore.firstChild || null);
+            document.body.classList.add('pw-form-page-active');
           }
         }
         return;
       }
  
-      // Sprint v4.8: убрать лендинг только когда аудит активно выполняется
+      // Убрать лендинг когда аудит запущен
       if (s.status === 'processing' || s.status === 'pending') {
         var landing = document.getElementById('pw-audit-landing');
         if (landing) { landing.remove(); document.body.classList.remove('pw-form-page-active'); }
       }
  
-      // Sprint v4.8: показать лендинг при возврате на /audit/ (SPA навигация, не на /audit-history)
+      // Показать лендинг на /audit (без ?id)
       if (isAuditFormPage() && s.status !== 'processing' && s.status !== 'pending') {
         var contentArea0 = document.querySelector('[data-v-app] .col:not(.col-fixed) > div');
         if (contentArea0 && !document.getElementById('pw-audit-landing')) {
           var landing2 = buildLandingBlock();
-          if (contentArea0.firstChild) {
-            contentArea0.insertBefore(landing2, contentArea0.firstChild);
-          } else {
-            contentArea0.appendChild(landing2);
-          }
-          // Скрыть Vue-блоки пока показываем лендинг
+          contentArea0.insertBefore(landing2, contentArea0.firstChild || null);
           document.body.classList.add('pw-form-page-active');
-          var ch0 = contentArea0.children;
-          for (var ci0 = 0; ci0 < ch0.length; ci0++) {
-            if (ch0[ci0].id !== 'pw-audit-landing') ch0[ci0].style.display = 'none';
-          }
         }
       }
  
-      // Sprint v4.7: показываем информативный прелоадер при processing/pending (только на /audit/)
+      // Прелоадер при processing/pending
       if (s.status === 'processing' || s.status === 'pending') _wasProcessing = true;
       if ((s.status === 'processing' || s.status === 'pending') && isAuditPage()) {
-        if (!document.getElementById('pw-audit-loader')) {
-          // Ищем контейнер: .audit-result или основной контент-блок Vue
-          var auditResult = document.querySelector('.audit-result');
-          var contentArea = auditResult
-            ? auditResult.parentElement
-            : document.querySelector('[data-v-app] .col:not(.col-fixed) > div');
+        document.body.classList.add('pw-report-active'); // CSS скрывает Vue-спиннеры
+        if (!document.getElementById('pw-audit-inject')) {
+          var contentArea = document.querySelector('[data-v-app] .col:not(.col-fixed) > div');
           if (contentArea) {
-            var inject = document.getElementById('pw-audit-inject') || h('div', { id: 'pw-audit-inject' });
-            if (!document.getElementById('pw-audit-inject')) {
-              if (auditResult) {
-                contentArea.insertBefore(inject, auditResult);
-              } else {
-                contentArea.appendChild(inject);
-              }
-            }
-            inject.innerHTML = '';
+            var inject = h('div', { id: 'pw-audit-inject' });
+            contentArea.appendChild(inject);
             inject.appendChild(buildLoadingScreen());
-            // Скрыть ВСЕ Vue-элементы (старый прелоадер, спиннеры и пр.)
-            var siblings = contentArea.children;
-            for (var si = 0; si < siblings.length; si++) {
-              if (siblings[si] !== inject && siblings[si].id !== 'pw-audit-inject') {
-                siblings[si].style.display = 'none';
-              }
-            }
           }
         }
       }
  
       var currKey = (s.auditId || '') + '/' + (s.isPaid ? '1' : '0') + '/' + (s.status || '');
- 
-      // Разрешаем рендер отчёта: либо URL имеет ?id=X, либо аудит запущен на этой странице (pending→done)
       var canRenderReport = isAuditReportPage() || _wasProcessing;
  
-      // BUGFIX history: если URL содержит ?id=X который НЕ совпадает с store.auditId,
-      // не рендерим из store (там данные предыдущего аудита). Ждём URL-fetch.
-      var urlId2 = getAuditIdFromUrl();
-      var storeMatchesUrl = !urlId2 || !s.auditId || (parseInt(urlId2) === parseInt(s.auditId));
+      // Не рендерим из store если его auditId не совпадает с URL (данные от предыдущего аудита)
+      var _urlIdNow = getAuditIdFromUrl();
+      var storeMatchesUrl = !_urlIdNow || !s.auditId || (parseInt(_urlIdNow) === s.auditId);
  
       if (currKey !== lastKey) {
-        if (s.status === 'done' && s.report && canRenderReport && storeMatchesUrl && !_pwFetchingFromUrl) {
+        if (s.status === 'done' && s.report && canRenderReport && storeMatchesUrl) {
           lastKey = currKey;
-          renderReport(s); // Быстрый рендер из store
-          // Всегда догружаем свежие данные из API (store.report не содержит block2_risk, unlock_info и пр.)
-          var _fid = getAuditIdFromUrl() || s.auditId;
+          renderReport(s); // быстрый рендер из store
+          // Догружаем block2_risk, unlock_info и пр. из API
+          var _fid = _urlIdNow || s.auditId;
           if (_fid) {
-            fetchAuditFull(_fid, function(apiData) {
+            fetchAuditFull(_fid, function (apiData) {
               if (!isAuditPage() || !apiData || apiData._error) return;
               renderReport(s, apiData);
             });
           }
-        } else if (s.status === 'done' && !s.report && s.auditId && canRenderReport && storeMatchesUrl && !_pwFetchingFromUrl) {
-          // Store не содержит report — грузим из API
+        } else if (s.status === 'done' && !s.report && s.auditId && canRenderReport && storeMatchesUrl) {
           lastKey = currKey;
           _pwApiCache = {};
-          fetchAuditFull(s.auditId, function(apiData) {
-            if (!isAuditPage()) return;
-            if (apiData && apiData.report) {
-              renderReport(s, apiData);
-            } else if (apiData && apiData.id) {
-              renderReport(s, { report: apiData, preview: apiData.preview || {} });
-            }
+          var _fid2 = _urlIdNow || s.auditId;
+          fetchAuditFull(_fid2, function (apiData) {
+            if (!isAuditPage() || !apiData || apiData._error) return;
+            renderReport(getStore() || {}, apiData);
           });
-        } else if (s.status !== 'processing' && s.status !== 'pending' && !_pwFetchingFromUrl) {
+        } else if (s.status !== 'processing' && s.status !== 'pending') {
           lastKey = currKey;
           removeInject();
         }
       }
  
-      if (!document.getElementById('pw-audit-inject') && s.status === 'done' && (s.report || s.auditId) && canRenderReport && !_pwFetchingFromUrl) {
-        if (s.auditId) {
-          fetchAuditFull(s.auditId, function(apiData) {
-            if (!isAuditPage()) return;
-            if (apiData) renderReport(s, apiData);
-            else if (s.report) renderReport(s);
+      // Резервный запуск если inject пропал (Vue его убрал или ещё не был создан)
+      if (!document.getElementById('pw-audit-inject') && s.status === 'done' && canRenderReport && storeMatchesUrl) {
+        var _fid3 = _urlIdNow || s.auditId;
+        if (_fid3) {
+          fetchAuditFull(_fid3, function (apiData) {
+            if (!isAuditPage() || !apiData || apiData._error) return;
+            renderReport(getStore() || {}, apiData);
           });
         } else if (s.report) {
           renderReport(s);
@@ -1818,11 +1765,7 @@
   // Немедленно скрываем Vue-элементы на /audit?id=X чтобы не было флеша Vue-контента
   (function () {
     if (isAuditReportPage()) {
-      var _earlyContainer = document.querySelector('[data-v-app] .col:not(.col-fixed) > div');
-      if (_earlyContainer) {
-        var _ch = _earlyContainer.children;
-        for (var _i = 0; _i < _ch.length; _i++) _ch[_i].style.display = 'none';
-      }
+      document.body.classList.add('pw-report-active');
     }
   })();
  

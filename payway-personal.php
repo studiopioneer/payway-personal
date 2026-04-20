@@ -140,13 +140,15 @@ add_action( 'template_redirect', function () {
 		}
 	}
 } );
-// Разрешаем cookie-auth без нонса для /payway/v1/nonce (получение нонса без нонса)
+// Cookie-auth для всех payway/v1 endpoints (обходит ограничения REST API для обычных пользователей)
 add_filter( 'rest_authentication_errors', function ( $result ) {
-    if ( strpos( $_SERVER['REQUEST_URI'] ?? '', '/payway/v1/nonce' ) === false ) return $result;
-    foreach ( $_COOKIE as $name => $val ) {
-        if ( strpos( $name, 'wordpress_logged_in_' ) === 0 ) {
-            $uid = wp_validate_auth_cookie( $val, 'logged_in' );
-            if ( $uid ) { wp_set_current_user( $uid ); break; }
+    if ( strpos( $_SERVER['REQUEST_URI'] ?? '', '/payway/v1/' ) === false ) return $result;
+    if ( ! get_current_user_id() ) {
+        foreach ( $_COOKIE as $name => $val ) {
+            if ( strpos( $name, 'wordpress_logged_in_' ) === 0 ) {
+                $uid = wp_validate_auth_cookie( $val, 'logged_in' );
+                if ( $uid ) { wp_set_current_user( $uid ); break; }
+            }
         }
     }
     return null;

@@ -1226,13 +1226,17 @@
         });
       }
  
-      // Сначала получаем свежий нонс, потом делаем POST
+      // Сначала получаем свежий нонс, потом делаем POST.
+      // ВАЖНО: обновляем window.paywayAuditCfg.nonce ДО вызова doAuditPost,
+      // потому что fetch-interceptor в account.php перезаписывает X-WP-Nonce из paywayAuditCfg.nonce.
       fetch('/wp-admin/admin-ajax.php?action=payway_fresh_nonce', { credentials: 'same-origin' })
         .then(function (r) { return r.json(); })
         .then(function (d) {
           var freshNonce = (d && d.data && d.data.nonce) ||
                            (window.paywayAuditCfg && window.paywayAuditCfg.nonce) ||
                            _pwCapturedNonce || '';
+          // Обновляем глобальный нонс, чтобы fetch-interceptor account.php тоже использовал свежий
+          if (freshNonce && window.paywayAuditCfg) window.paywayAuditCfg.nonce = freshNonce;
           doAuditPost(freshNonce);
         })
         .catch(function () {
@@ -1472,6 +1476,19 @@
       }
       if (!report.is_paid && _apiData.is_paid) {
         report = Object.assign({}, report, { is_paid: !!_apiData.is_paid });
+      }
+      // BUGFIX blocks: PHP возвращает block2_risk/block3_risk/block1_status на верхнем уровне,
+      // но не вкладывает в report.demonetization.risk и report.copyright.risk.
+      // Восстанавливаем вложенные поля из плоских полей API — иначе блоки всегда зелёные.
+      if (_apiData.block2_risk && (!report.demonetization || !report.demonetization.risk)) {
+        report = Object.assign({}, report, { demonetization: { risk: _apiData.block2_risk, details: '' } });
+      }
+      if (_apiData.block3_risk && (!report.copyright || !report.copyright.risk)) {
+        report = Object.assign({}, report, { copyright: { risk: _apiData.block3_risk, details: '' } });
+      }
+      if (_apiData.block1_status && (!report.admission || !report.admission.risk)) {
+        var _b1r = _apiData.block1_status === 'fail' ? 'high' : _apiData.block1_status === 'warn' ? 'medium' : 'low';
+        report = Object.assign({}, report, { admission: { risk: _b1r, details: '' } });
       }
     }
  
@@ -1748,11 +1765,16 @@
       // Разрешаем рендер отчёта: либо URL имеет ?id=X, либо аудит запущен на этой странице (pending→done)
       var canRenderReport = isAuditReportPage() || _wasProcessing;
  
+      // BUGFIX history: если URL содержит ?id=X который НЕ совпадает с store.auditId,
+      // не рендерим из store (там данные предыдущего аудита). Ждём URL-fetch.
+      var urlId2 = getAuditIdFromUrl();
+      var storeMatchesUrl = !urlId2 || !s.auditId || (parseInt(urlId2) === parseInt(s.auditId));
+ 
       if (currKey !== lastKey) {
-        if (s.status === 'done' && s.report && canRenderReport) {
+        if (s.status === 'done' && s.report && canRenderReport && storeMatchesUrl && !_pwFetchingFromUrl) {
           lastKey = currKey;
           renderReport(s); // Быстрый рендер из store
-          // Всегда догружаем unlock_info из API (store.report не содержит этого поля)
+          // Всегда догружаем свежие данные из API (store.report не содержит block2_risk, unlock_info и пр.)
           var _fid = getAuditIdFromUrl() || s.auditId;
           if (_fid) {
             fetchAuditFull(_fid, function(apiData) {
@@ -1760,7 +1782,7 @@
               renderReport(s, apiData);
             });
           }
-        } else if (s.status === 'done' && !s.report && s.auditId && canRenderReport) {
+        } else if (s.status === 'done' && !s.report && s.auditId && canRenderReport && storeMatchesUrl && !_pwFetchingFromUrl) {
           // Store не содержит report — грузим из API
           lastKey = currKey;
           _pwApiCache = {};
@@ -1772,9 +1794,9 @@
               renderReport(s, { report: apiData, preview: apiData.preview || {} });
             }
           });
-        } else if (s.status !== 'processing' && s.status !== 'pending') {
+        } else if (s.status !== 'processing' && s.status !== 'pending' && !_pwFetchingFromUrl) {
           lastKey = currKey;
-          if (!_pwFetchingFromUrl) removeInject(); // не сбрасываем пока идёт URL-fetch
+          removeInject();
         }
       }
  

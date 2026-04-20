@@ -19,10 +19,10 @@
  
   // —— Ранний сброс nonce (исправляет 401 при кешировании account.php) ————————————————————
   // Если страница закеширована — nonce в window.paywayAuditCfg может быть чужим (admin).
-  // Получаем свежий нонс через /?payway_get_nonce=1 (init-hook, не wp-admin, работает для всех).
+  // Получаем свежий нонс через /wp-json/payway/v1/nonce (init-hook, не wp-admin, работает для всех).
   (function () {
     try {
-      fetch('/?payway_get_nonce=1', { credentials: 'same-origin' })
+      fetch('/wp-json/payway/v1/nonce', { credentials: 'same-origin' })
         .then(function (r) { return r.json(); })
         .then(function (d) {
           if (!(d && d.success && d.data && d.data.nonce)) return;
@@ -1265,7 +1265,7 @@
       // Сначала получаем свежий нонс, потом делаем POST.
       // ВАЖНО: обновляем window.paywayAuditCfg.nonce ДО вызова doAuditPost,
       // потому что fetch-interceptor в account.php перезаписывает X-WP-Nonce из paywayAuditCfg.nonce.
-      fetch('/?payway_get_nonce=1', { credentials: 'same-origin' })
+      fetch('/wp-json/payway/v1/nonce', { credentials: 'same-origin' })
         .then(function (r) { return r.json(); })
         .then(function (d) {
           var freshNonce = (d && d.data && d.data.nonce) ||
@@ -1436,7 +1436,7 @@
   // Получить свежий nonce + is_admin через admin-ajax (cookie-auth, не зависит от кеша страницы)
   function refreshNonce(cb) {
     if (_pwNonceRefreshed) { cb(); return; }
-    fetch('/?payway_get_nonce=1', { credentials: 'same-origin' })
+    fetch('/wp-json/payway/v1/nonce', { credentials: 'same-origin' })
       .then(function (r) { return r.json(); })
       .then(function (d) {
         if (d && d.success && d.data && d.data.nonce) {

@@ -58,16 +58,16 @@ class PW_Audit_REST {
             'callback'            => [ $this, 'get_history' ],
             'permission_callback' => 'is_user_logged_in',
         ]);
-        
-        public function get_nonce() {
-    return rest_ensure_response( [
-        'success' => true,
-        'data'    => [
-            'nonce'    => wp_create_nonce( 'wp_rest' ),
-            'is_admin' => current_user_can( 'manage_options' ),
-        ],
-    ] );
-}
+    }
+
+    public function get_nonce() {
+        return rest_ensure_response( [
+            'success' => true,
+            'data'    => [
+                'nonce'    => wp_create_nonce( 'wp_rest' ),
+                'is_admin' => current_user_can( 'manage_options' ),
+            ],
+        ] );
     }
  
     // ─────────────────────────────────────────────────────────

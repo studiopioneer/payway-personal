@@ -77,13 +77,11 @@ class DonationsListTable extends WP_List_Table {
         $current    = $this->get_pagenum();
         $offset     = ( $current - 1 ) * $per_page;
  
-        // Сортировка
         $orderby = in_array( $_GET['orderby'] ?? '', [ 'amount', 'created_at' ] )
             ? sanitize_sql_orderby( $_GET['orderby'] )
             : 'created_at';
         $order   = strtoupper( $_GET['order'] ?? 'DESC' ) === 'ASC' ? 'ASC' : 'DESC';
  
-        // Получаем строки с JOIN на wp_users
         // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
         $rows = $wpdb->get_results(
             "SELECT d.*, u.display_name, u.user_email
@@ -108,7 +106,8 @@ class DonationsListTable extends WP_List_Table {
         $this->_column_headers = [ $this->get_columns(), [], $this->get_sortable_columns() ];
     }
  
-    protected function display_tablenav( $which ) {
+    // Переопределяем как public — WP_List_Table::display_tablenav() тоже public
+    public function display_tablenav( $which ) {
         parent::display_tablenav( $which );
  
         if ( $which === 'bottom' ) {

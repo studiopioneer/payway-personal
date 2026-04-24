@@ -1,5 +1,5 @@
 name: Deploy to Test Server
-
+ 
 on:
   push:
     branches: [main]
@@ -7,15 +7,15 @@ on:
       - '**.md'
       - '.gitignore'
   workflow_dispatch:
-
+ 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
+ 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
+ 
       - name: Deploy via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
@@ -23,7 +23,7 @@ jobs:
           username: ${{ secrets.FTP_USER }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./
-          server-dir: ${{ secrets.FTP_PATH }}
+          server-dir: /home/funnycu1/hikartveli.com/wp-content/plugins/payway-personal-backup-working-v8.2/
           exclude: |
             **/.git*
             **/.git*/**
@@ -37,3 +37,4 @@ jobs:
             vite.config.js
             vite.svg
             **/*.md
+ 

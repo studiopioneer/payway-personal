@@ -23,7 +23,8 @@ jobs:
           username: ${{ secrets.FTP_USER }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./
-          server-dir: /home/funnycu1/hikartveli.com/wp-content/plugins/payway-personal-backup-working-v8.2/
+          server-dir: ${{ secrets.FTP_PATH }}
+          protocol: ftp
           exclude: |
             **/.git*
             **/.git*/**

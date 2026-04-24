@@ -1,10 +1,10 @@
 <?php
 namespace Payway\Pages;
- 
+
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
- 
+
 /**
  * DonationsPage — вкладка «Донаты» в WP Admin → PW Кабинет
  *
@@ -12,12 +12,11 @@ if ( ! defined( 'ABSPATH' ) ) {
  * @version 4.9
  */
 class DonationsPage {
- 
+
     public static function init(): void {
-        // Вызываем register_page() напрямую — мы уже внутри admin_menu хука
         ( new static() )->register_page();
     }
- 
+
     public function register_page(): void {
         add_submenu_page(
             'payway-cabinet',
@@ -28,10 +27,10 @@ class DonationsPage {
             [ $this, 'render' ]
         );
     }
- 
+
     public function render(): void {
         require_once PAYWAY_PLUGIN_DIR . '/admin/pages/list-tables/class-donations-list-table.php';
- 
+
         $table = new \DonationsListTable();
         $table->prepare_items();
         ?>

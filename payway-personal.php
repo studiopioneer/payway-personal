@@ -50,6 +50,9 @@ require_once PAYWAY_PLUGIN_DIR . '/includes/class-openai-client.php';
 require_once PAYWAY_PLUGIN_DIR . '/includes/class-audit-credit.php';
 require_once PAYWAY_PLUGIN_DIR . '/includes/class-audit-rest.php';
 require_once PAYWAY_PLUGIN_DIR . '/includes/class-audit-cron.php';
+// ── JWT Authentication (встроенная, замена внешнего плагина) ──────────────────
+require_once PAYWAY_PLUGIN_DIR . '/includes/class-jwt-auth.php';
+PW_JWT_Auth::init();
 
 add_action( 'rest_api_init', function () { $c = new PW_Audit_REST(); $c->register_routes(); } );
 PW_Audit_Cron::register_hooks();

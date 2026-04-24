@@ -39,10 +39,22 @@ class PW_JWT_Auth {
         // Снимаем ошибку cookie-auth когда Bearer JWT токен валиден
         // WordPress выбрасывает rest_cookie_check_errors если cookie без nonce,
         // но при наличии валидного JWT nonce не нужен.
-        add_filter( 'rest_authentication_errors', [ __CLASS__, 'bypass_cookie_error_for_jwt' ], 99 );
+        add_filter( 'rest_authentication_errors', [ __CLASS__, 'bypass_cookie_error_for_jwt' ], 101 );
  
         // Разрешить Authorization заголовок
         add_filter( 'rest_pre_serve_request', [ __CLASS__, 'add_cors_headers' ], 15 );
+ 
+        // DIAGNOSTIC: ловушка на максимальном приоритете — ловит ЛЮБУЮ ошибку auth
+        add_filter( 'rest_authentication_errors', function( $result ) {
+            if ( is_wp_error( $result ) ) {
+                error_log( 'PW_JWT DIAGNOSTIC [p999] rest_auth ERROR: code=' . $result->get_error_code()
+                    . ' msg=' . $result->get_error_message()
+                    . ' status=' . ( $result->get_error_data()['status'] ?? '?' )
+                    . ' uid=' . get_current_user_id()
+                    . ' uri=' . $_SERVER['REQUEST_URI'] );
+            }
+            return $result;
+        }, 999 );
     }
  
     // =====================================================================
@@ -91,6 +103,11 @@ class PW_JWT_Auth {
             );
         }
  
+        // Устанавливаем WordPress cookie-сессию
+        // Без этого wp_head не знает пользователя → nonce/authToken будут анонимными
+        wp_set_current_user( $user->ID );
+        wp_set_auth_cookie( $user->ID, true );
+ 
         // Генерация токена
         $token = self::generate_token_for_user( $user );
  
@@ -136,29 +153,32 @@ class PW_JWT_Auth {
      * @return int
      */
     public static function determine_current_user( int $user_id ): int {
-        // Если пользователь уже определён (напр. по cookie) — не перезаписываем
-        // КРОМЕ случая когда явно передан Bearer токен
         $token = self::extract_token_from_headers();
  
         if ( ! $token ) {
             return $user_id;
         }
  
-        // Если есть Bearer токен — валидируем его
+        // DEBUG: временное логирование (удалить после отладки)
+        error_log( 'PW_JWT determine_current_user: token FOUND, incoming uid=' . $user_id );
+ 
         $payload = self::decode_token( $token );
  
         if ( is_wp_error( $payload ) ) {
-            // Невалидный токен — НЕ сбрасываем cookie-авторизацию
-            // (это исправляет баг старого JWT плагина)
+            error_log( 'PW_JWT determine_current_user: decode FAILED — ' . $payload->get_error_code() );
             return $user_id;
         }
+ 
+        error_log( 'PW_JWT determine_current_user: decode OK, payload=' . json_encode( $payload['data'] ?? 'no_data' ) );
  
         $token_user_id = isset( $payload['data']['user']['id'] ) ? (int) $payload['data']['user']['id'] : 0;
  
         if ( $token_user_id > 0 && get_userdata( $token_user_id ) ) {
+            error_log( 'PW_JWT determine_current_user: setting user_id=' . $token_user_id );
             return $token_user_id;
         }
  
+        error_log( 'PW_JWT determine_current_user: user not found or id=0, token_user_id=' . $token_user_id );
         return $user_id;
     }
  
@@ -284,17 +304,17 @@ class PW_JWT_Auth {
      * Используем SECURE_AUTH_KEY из wp-config.php (всегда доступен).
      */
     private static function get_secret_key(): string {
-        // Если определён JWT_AUTH_SECRET_KEY (от старого плагина) — используем его
-        // для совместимости с уже выданными токенами
         if ( defined( 'JWT_AUTH_SECRET_KEY' ) && JWT_AUTH_SECRET_KEY ) {
+            error_log( 'PW_JWT get_secret_key: using JWT_AUTH_SECRET_KEY' );
             return JWT_AUTH_SECRET_KEY;
         }
  
-        // Fallback на стандартный WordPress ключ
         if ( defined( 'SECURE_AUTH_KEY' ) && SECURE_AUTH_KEY ) {
+            error_log( 'PW_JWT get_secret_key: using SECURE_AUTH_KEY' );
             return SECURE_AUTH_KEY;
         }
  
+        error_log( 'PW_JWT get_secret_key: using AUTH_KEY (fallback)' );
         return AUTH_KEY;
     }
  
@@ -336,25 +356,34 @@ class PW_JWT_Auth {
      * @return WP_Error|null|true
      */
     public static function bypass_cookie_error_for_jwt( $result ) {
-        // Если нет ошибки — не трогаем
-        if ( ! is_wp_error( $result ) ) {
-            return $result;
-        }
- 
-        // Проверяем, есть ли Bearer токен
         $token = self::extract_token_from_headers();
         if ( ! $token ) {
             return $result;
         }
  
-        // Валидируем токен
         $payload = self::decode_token( $token );
         if ( is_wp_error( $payload ) ) {
             return $result;
         }
  
-        // Токен валиден — снимаем ошибку cookie-auth
-        return null;
+        $token_user_id = isset( $payload['data']['user']['id'] ) ? (int) $payload['data']['user']['id'] : 0;
+ 
+        // WordPress rest_cookie_check_errors (p100) может вызвать
+        // wp_set_current_user(0) когда есть cookie без nonce,
+        // и вернуть true (не WP_Error!) — пользователь теряется.
+        // Восстанавливаем пользователя из JWT.
+        if ( $token_user_id > 0 && get_current_user_id() === 0 ) {
+            wp_set_current_user( $token_user_id );
+            error_log( 'PW_JWT bypass: user was reset to 0 by cookie check, restored to ' . $token_user_id );
+        }
+ 
+        // Если $result — WP_Error (cookie ошибка), очищаем
+        if ( is_wp_error( $result ) ) {
+            error_log( 'PW_JWT bypass: clearing WP_Error ' . $result->get_error_code() );
+            return true;
+        }
+ 
+        return $result;
     }
  
     /**

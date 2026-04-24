@@ -36,6 +36,11 @@ class PW_JWT_Auth {
         // Валидация Bearer токена для определения текущего пользователя
         add_filter( 'determine_current_user', [ __CLASS__, 'determine_current_user' ], 20 );
  
+        // Снимаем ошибку cookie-auth когда Bearer JWT токен валиден
+        // WordPress выбрасывает rest_cookie_check_errors если cookie без nonce,
+        // но при наличии валидного JWT nonce не нужен.
+        add_filter( 'rest_authentication_errors', [ __CLASS__, 'bypass_cookie_error_for_jwt' ], 99 );
+ 
         // Разрешить Authorization заголовок
         add_filter( 'rest_pre_serve_request', [ __CLASS__, 'add_cors_headers' ], 15 );
     }
@@ -320,6 +325,35 @@ class PW_JWT_Auth {
             return $matches[1];
         }
  
+        return null;
+    }
+ 
+    /**
+     * Если запрос содержит валидный JWT Bearer токен, снимаем ошибку
+     * rest_cookie_check_errors (которая возникает когда есть cookie без nonce).
+     *
+     * @param WP_Error|null|true $result
+     * @return WP_Error|null|true
+     */
+    public static function bypass_cookie_error_for_jwt( $result ) {
+        // Если нет ошибки — не трогаем
+        if ( ! is_wp_error( $result ) ) {
+            return $result;
+        }
+ 
+        // Проверяем, есть ли Bearer токен
+        $token = self::extract_token_from_headers();
+        if ( ! $token ) {
+            return $result;
+        }
+ 
+        // Валидируем токен
+        $payload = self::decode_token( $token );
+        if ( is_wp_error( $payload ) ) {
+            return $result;
+        }
+ 
+        // Токен валиден — снимаем ошибку cookie-auth
         return null;
     }
  

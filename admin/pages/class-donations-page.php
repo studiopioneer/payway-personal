@@ -1,9 +1,9 @@
 <?php
+namespace Payway\Pages;
+ 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
- 
-namespace Payway\Pages;
  
 /**
  * DonationsPage — вкладка «Донаты» в WP Admin → PW Кабинет
@@ -14,8 +14,8 @@ namespace Payway\Pages;
 class DonationsPage {
  
     public static function init(): void {
-        $page = new static();
-        add_action( 'admin_menu', [ $page, 'register_page' ] );
+        // Вызываем register_page() напрямую — мы уже внутри admin_menu хука
+        ( new static() )->register_page();
     }
  
     public function register_page(): void {

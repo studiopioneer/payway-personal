@@ -263,6 +263,22 @@
       '.pw-table-note{font-size:11px;color:#aaa;margin-bottom:10px}',
       '.pw-table-legend{display:flex;gap:16px;margin-top:8px;font-size:11px;color:#aaa;flex-wrap:wrap}',
       '.pw-legend-sq{width:10px;height:10px;border-radius:2px;display:inline-block;margin-right:4px;vertical-align:middle}',
+      /* Donate block */
+      '.pw-donate-section{margin:16px 18px;padding:20px;background:linear-gradient(135deg,#fff5f5 0%,#fff 100%);border:1px solid #fecaca;border-radius:12px}',
+      '.pw-donate-header{display:flex;align-items:flex-start;gap:14px;margin-bottom:16px}',
+      '.pw-donate-title{font-size:14px;font-weight:600;color:#1a1a1a;margin-bottom:5px}',
+      '.pw-donate-sub{font-size:12px;color:#666;line-height:1.6}',
+      '.pw-donate-amounts{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}',
+      '.pw-donate-amt-btn{height:34px;padding:0 16px;border-radius:6px;border:1px solid #e8e8e8;background:#fff;font-size:13px;font-weight:500;color:#555;cursor:pointer}',
+      '.pw-donate-amt-btn:hover{border-color:#E8192C;color:#E8192C}',
+      '.pw-donate-amt-btn.active{background:#E8192C;border-color:#E8192C;color:#fff}',
+      '.pw-donate-input-row{display:flex;align-items:center;gap:0;margin-bottom:12px;max-width:200px}',
+      '.pw-donate-prefix{height:36px;padding:0 10px;background:#f9f9f9;border:1px solid #e8e8e8;border-right:none;border-radius:6px 0 0 6px;font-size:14px;color:#aaa;display:flex;align-items:center}',
+      '.pw-donate-input{height:36px;padding:0 10px;border:1px solid #e8e8e8;border-radius:0 6px 6px 0;font-size:14px;width:120px;outline:none}',
+      '.pw-donate-btn{height:38px;padding:0 20px;background:#E8192C;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer}',
+      '.pw-donate-result{margin-top:10px;font-size:13px;padding:8px 12px;border-radius:6px}',
+      '.pw-donate-result.success{background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0}',
+      '.pw-donate-result.error{background:#fef2f2;color:#dc2626;border:1px solid #fecaca}',
     ].join('');
     document.head.appendChild(style);
   }
@@ -572,7 +588,7 @@
  
     var hdr = h('div', { class: 'pw-card-header' });
     hdr.appendChild(h('div', { class: 'pw-card-title' }, 'Полный отчёт с рекомендациями'));
-    hdr.innerHTML += '<div style="font-size:12px;color:#aaa">Стоимость: <b style="color:#E8192C">$1.00</b></div>';
+    hdr.innerHTML += '<div style="font-size:12px;color:#aaa">Полный анализ бесплатно</div>';
     card.appendChild(hdr);
  
     var body = h('div', { class: 'pw-card-body' });
@@ -600,22 +616,19 @@
     var gateText = h('div', { class: 'pw-blur-gate-text' }, 'Детальный разбор и рекомендации скрыты');
  
     var unlockInfo    = (report.unlock_info) || (store && store.unlockInfo) || {};
-    var balance       = Number(unlockInfo.balance || 0);
     var creditStatus  = unlockInfo.credit_status || {};
-    var freeRemaining = creditStatus.free_remaining || 0;
+    var freeRemaining = creditStatus.free_remaining != null ? creditStatus.free_remaining : 3;
     var freeTotal     = creditStatus.free_total || 3;
     var btnText;
-    if (balance >= 1) {
-      btnText = 'Открыть полный отчёт — $1.00 (баланс: $' + balance.toFixed(2) + ')';
-    } else if (unlockInfo.credit_available) {
-      btnText = 'Получить бесплатный отчёт (' + freeRemaining + ' из ' + freeTotal + ' осталось)';
-    } else if (creditStatus.daily_used) {
-      btnText = 'Следующий бесплатный отчёт — завтра';
+    if (creditStatus.daily_used) {
+      btnText = 'Следующий отчёт доступен завтра';
+    } else if (freeRemaining > 0 || unlockInfo.credit_available) {
+      btnText = 'Получить полный отчёт бесплатно (' + freeRemaining + ' из ' + freeTotal + ')';
     } else {
-      btnText = 'Бесплатные отчёты исчерпаны — пополните баланс';
+      btnText = 'Бесплатные отчёты исчерпаны';
     }
  
-    var canUnlock = balance >= 1 || !!unlockInfo.credit_available;
+    var canUnlock = !!unlockInfo.credit_available || (freeRemaining > 0 && !creditStatus.daily_used);
     var errMsg = h('div', { class: 'pw-unlock-error', style: 'display:none' });
     var btn = h('button', { class: 'pw-unlock-btn' }, btnText);
     if (!canUnlock) {
@@ -664,6 +677,117 @@
     body.appendChild(h('div', { style: 'font-size:11px;color:#ccc;text-align:center' }, 'Детальный разбор каждого сигнала · Конкретные рекомендации автору'));
     card.appendChild(body);
     return card;
+  }
+ 
+ 
+  // —— Блок доната (Sprint v4.9) ——————————————————————————————————————————————————————————————
+  function buildDonateBlock() {
+    var section = h('div', { class: 'pw-donate-section' });
+ 
+    var header = h('div', { class: 'pw-donate-header' });
+ 
+    // Heart icon
+    var iconWrap = h('div', { style: 'flex-shrink:0;margin-top:2px' });
+    iconWrap.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="#E8192C" xmlns="http://www.w3.org/2000/svg"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>';
+    header.appendChild(iconWrap);
+ 
+    var textWrap = h('div', {});
+    textWrap.appendChild(h('div', { class: 'pw-donate-title' }, 'Нам важна ваша поддержка'));
+    textWrap.appendChild(h('div', { class: 'pw-donate-sub' }, 'Мы вложили много сил в этот инструмент — более 50 часов разработки, чтобы вы получали честный и глубокий анализ своего канала. Если отчёт оказался полезным, нам будет приятна любая поддержка. Это помогает нам развивать PayWay дальше.'));
+    header.appendChild(textWrap);
+    section.appendChild(header);
+ 
+    // Amount buttons
+    var amountsBtns = h('div', { class: 'pw-donate-amounts' });
+    var selectedAmount = 0;
+    var amountInput;
+ 
+    [1, 2, 5, 10].forEach(function(val) {
+      var amtBtn = h('button', { class: 'pw-donate-amt-btn' }, '$' + val);
+      amtBtn.addEventListener('click', function() {
+        amountsBtns.querySelectorAll('.pw-donate-amt-btn').forEach(function(b) { b.classList.remove('active'); });
+        amtBtn.classList.add('active');
+        selectedAmount = val;
+        if (amountInput) amountInput.value = val;
+      });
+      amountsBtns.appendChild(amtBtn);
+    });
+    section.appendChild(amountsBtns);
+ 
+    // Custom amount input
+    var inputRow = h('div', { class: 'pw-donate-input-row' });
+    var pfx = h('div', { class: 'pw-donate-prefix' }, '$');
+    amountInput = document.createElement('input');
+    amountInput.className = 'pw-donate-input';
+    amountInput.type = 'number';
+    amountInput.placeholder = '0.00';
+    amountInput.min = '0.01';
+    amountInput.step = '0.01';
+    amountInput.addEventListener('input', function() {
+      amountsBtns.querySelectorAll('.pw-donate-amt-btn').forEach(function(b) { b.classList.remove('active'); });
+      selectedAmount = parseFloat(amountInput.value) || 0;
+    });
+    inputRow.appendChild(pfx);
+    inputRow.appendChild(amountInput);
+    section.appendChild(inputRow);
+ 
+    // Submit button
+    var submitBtn = h('button', { class: 'pw-donate-btn' }, 'Отправить донат');
+    section.appendChild(submitBtn);
+ 
+    // Result message
+    var resultEl = h('div', { class: 'pw-donate-result', style: 'display:none' });
+    section.appendChild(resultEl);
+ 
+    submitBtn.addEventListener('click', function() {
+      var amount = parseFloat(amountInput.value) || selectedAmount;
+      if (!amount || amount <= 0) {
+        resultEl.className = 'pw-donate-result error';
+        resultEl.textContent = 'Введите сумму больше нуля';
+        resultEl.style.display = 'block';
+        return;
+      }
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Отправляем...';
+      resultEl.style.display = 'none';
+ 
+      var nonce = (window.paywayAuditCfg && window.paywayAuditCfg.nonce) || '';
+      var token = (window.paywayAuditCfg && window.paywayAuditCfg.authToken) || '';
+ 
+      fetch('/wp-json/payway/v1/donate', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce, 'X-Payway-Token': token },
+        body: JSON.stringify({ amount: amount, message: '' })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data && data.success) {
+          amountsBtns.style.display = 'none';
+          inputRow.style.display = 'none';
+          submitBtn.style.display = 'none';
+          resultEl.className = 'pw-donate-result success';
+          resultEl.innerHTML = '&#10084;&#65039; Спасибо! Донат $' + amount.toFixed(2) + ' принят. Это очень важно для нас.';
+          resultEl.style.display = 'block';
+        } else {
+          var msg = (data && data.message) ? data.message : 'Ошибка при отправке доната.';
+          resultEl.className = 'pw-donate-result error';
+          resultEl.textContent = msg;
+          resultEl.style.display = 'block';
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Отправить донат';
+        }
+      })
+      .catch(function() {
+        resultEl.className = 'pw-donate-result error';
+        resultEl.textContent = 'Ошибка соединения. Попробуйте ещё раз.';
+        resultEl.style.display = 'block';
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Отправить донат';
+      });
+    });
+ 
+    return section;
   }
  
   // —— Строка критерия (Блок 1) ——————————————————————————————————————————————————————————————
@@ -1144,6 +1268,10 @@
     // —— Sprint 5: Рекомендации для автора (redesign) ——
     var recsEl = buildRecommendations(recs, full);
     if (recsEl) wrap.appendChild(recsEl);
+ 
+    // —— v4.9: Блок доната (после рекомендаций) ——
+    var donateEl = buildDonateBlock();
+    if (donateEl) wrap.appendChild(donateEl);
  
     // —— Sprint 5: Чеклист модератора (admin only) ——
     var modBlock = buildModeratorChecklist(full);

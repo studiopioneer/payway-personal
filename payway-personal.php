@@ -56,6 +56,24 @@ PW_JWT_Auth::init();
 
 add_action( 'rest_api_init', function () { $c = new PW_Audit_REST(); $c->register_routes(); } );
 PW_Audit_Cron::register_hooks();
+// ── v4.9: Создание таблицы donations для существующих установок ──────────────
+add_action( 'init', function () {
+    if ( get_option( 'payway_donations_table_created' ) ) return;
+    global $wpdb;
+    $charset_collate = $wpdb->get_charset_collate();
+    $sql = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}payway_donations (
+        id          BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+        user_id     BIGINT(20) UNSIGNED NOT NULL,
+        amount      DECIMAL(11,2) NOT NULL,
+        message     TEXT DEFAULT '',
+        created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY user_id (user_id)
+    ) {$charset_collate};";
+    require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+    dbDelta( $sql );
+    update_option( 'payway_donations_table_created', 1 );
+} );
 // ── Admin settings page (API keys) ──────────────────────────────────────────
 if ( is_admin() ) {
 	require_once PAYWAY_PLUGIN_DIR . '/admin/pages/class-settings-page.php';
@@ -95,7 +113,8 @@ add_action( 'admin_menu', function () {
 	require_once PAYWAY_PLUGIN_DIR . '/admin/pages/class-income-page.php';
 	require_once PAYWAY_PLUGIN_DIR . '/admin/pages/class-users-columns.php';
 	require_once PAYWAY_PLUGIN_DIR . '/admin/pages/class-referral-page.php';
-
+	require_once PAYWAY_PLUGIN_DIR . '/admin/pages/class-donations-page.php';
+	Payway\Pages\DonationsPage::init();
 	Payway\Pages\ProjectsPage::init();
 	Payway\Pages\UnlockPage::init();
 	Payway\Pages\WithdrawalPage::init();

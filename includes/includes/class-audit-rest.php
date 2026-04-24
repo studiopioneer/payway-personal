@@ -20,7 +20,13 @@ class PW_Audit_REST {
         register_rest_route( 'payway/v1', '/audit', [
             'methods'             => 'POST',
             'callback'            => [ $this, 'start_audit' ],
-            'permission_callback' => 'is_user_logged_in',
+            'permission_callback' => [ $this, 'check_audit_owner' ],
+        ]);
+ 
+        register_rest_route( 'payway/v1', '/nonce', [
+            'methods'             => 'GET',
+            'callback'            => [ $this, 'get_nonce' ],
+            'permission_callback' => '__return_true',
         ]);
  
         register_rest_route( 'payway/v1', '/audit/(?P<id>\d+)', [
@@ -44,14 +50,62 @@ class PW_Audit_REST {
         register_rest_route( 'payway/v1', '/audit/start', [
             'methods'             => 'POST',
             'callback'            => [ $this, 'start_audit' ],
-            'permission_callback' => 'is_user_logged_in',
+            'permission_callback' => [ $this, 'check_audit_owner' ],
         ]);
  
         register_rest_route( 'payway/v1', '/audit/history', [
             'methods'             => 'GET',
             'callback'            => [ $this, 'get_history' ],
-            'permission_callback' => 'is_user_logged_in',
+            'permission_callback' => [ $this, 'check_audit_owner' ],
         ]);
+ 
+        // v4.9: Донаты
+        register_rest_route( 'payway/v1', '/donate', [
+            'methods'             => 'POST',
+            'callback'            => [ $this, 'process_donate' ],
+            'permission_callback' => [ $this, 'check_audit_owner' ],
+        ]);
+    }
+ 
+    public function get_nonce() {
+        // Диагностика: что видит сервер
+        $cookie_keys    = array_keys( $_COOKIE );
+        $wp_cookie_name = '';
+        $wp_cookie_val  = '';
+        foreach ( $_COOKIE as $name => $val ) {
+            if ( strpos( $name, 'wordpress_logged_in_' ) === 0 ) {
+                $wp_cookie_name = $name;
+                $wp_cookie_val  = substr( $val, 0, 20 ) . '...';
+                break;
+            }
+        }
+        $cookie_auth_uid = $wp_cookie_name
+            ? wp_validate_auth_cookie( $_COOKIE[ $wp_cookie_name ], 'logged_in' )
+            : 'no_cookie';
+ 
+        $auth_token = null;
+        $uid = get_current_user_id();
+        if ( $uid ) {
+            $token = wp_generate_password( 32, false );
+            set_transient( 'payway_tok_' . md5( $token ), $uid, 2 * HOUR_IN_SECONDS );
+            $auth_token = $token;
+        }
+        return rest_ensure_response( [
+            'success' => true,
+            'data'    => [
+                'nonce'      => wp_create_nonce( 'wp_rest' ),
+                'is_admin'   => current_user_can( 'manage_options' ),
+                'auth_token' => $auth_token,
+                '_debug'     => [
+                    'uid'             => $uid,
+                    'cookies_count'   => count( $cookie_keys ),
+                    'cookie_names'    => $cookie_keys,
+                    'wp_cookie_found' => ! empty( $wp_cookie_name ),
+                    'wp_cookie_name'  => $wp_cookie_name,
+                    'cookie_auth_uid' => $cookie_auth_uid,
+                ],
+            ],
+        ] );
     }
  
     // ─────────────────────────────────────────────────────────
@@ -68,15 +122,15 @@ class PW_Audit_REST {
             return new WP_Error( 'missing_url', 'Укажите URL канала', [ 'status' => 400 ] );
         }
  
-// Rate limiting: ≤ 5 запросов / час (не для админа)
-if ( ! current_user_can( 'manage_options' ) ) {
-    $rate_key = 'payway_audit_rate_' . $user_id;
-    $rate_cnt = (int) get_transient( $rate_key );
-    if ( $rate_cnt >= 5 ) {
-        return new WP_Error( 'rate_limit', 'Превышен лимит запросов (5 в час)', [ 'status' => 429 ] );
-    }
-    set_transient( $rate_key, $rate_cnt + 1, HOUR_IN_SECONDS );
-}
+        // Rate limiting: ≤ 5 запросов / час (не для админа)
+        if ( ! current_user_can( 'manage_options' ) ) {
+            $rate_key = 'payway_audit_rate_' . $user_id;
+            $rate_cnt = (int) get_transient( $rate_key );
+            if ( $rate_cnt >= 5 ) {
+                return new WP_Error( 'rate_limit', 'Превышен лимит запросов (5 в час)', [ 'status' => 429 ] );
+            }
+            set_transient( $rate_key, $rate_cnt + 1, HOUR_IN_SECONDS );
+        }
  
         // 1. YouTube API
         $yt_data = $this->yt_api->get_channel_full_data( $channel_url );
@@ -108,12 +162,10 @@ if ( ! current_user_can( 'manage_options' ) ) {
  
         // Итоговые значения
         if ( $ai_ok ) {
-            // PHP-сигналы могут повысить риск блока 2
             $final_block2_risk = $this->merge_risk( $php_block2_risk, $ai_result['block2_risk'] );
             $final_block3_risk = $ai_result['block3_risk'];
             $final_verdict     = $early_verdict ?? $ai_result['verdict'];
  
-            // Если блок 2 = high → вердикт manual (даже если AI дал accept)
             if ( $final_block2_risk === 'high' && $final_verdict === 'accept' ) {
                 $final_verdict = 'manual';
             }
@@ -128,10 +180,8 @@ if ( ! current_user_can( 'manage_options' ) ) {
             $report_full_raw   = [ 'error' => $ai_result->get_error_message() ];
         }
  
-        // Карта risk_block1 (fail→fail, warn→warn, ok→ok)
-        $risk_block1 = $ad['block1_status']; // ok | warn | fail
+        $risk_block1 = $ad['block1_status'];
  
-        // report_preview — данные для бесплатного экрана
         $report_preview = [
             'subscriber_count'  => $ad['channel_metrics']['subscriber_count'],
             'view_count'        => $ad['channel_metrics']['view_count'],
@@ -147,14 +197,12 @@ if ( ! current_user_can( 'manage_options' ) ) {
             'verdict_reason'    => $verdict_reason,
         ];
  
-        // report_full — полный AI отчёт
         $report_full = array_merge( $report_full_raw, [
             'block1_criteria'  => $ad['block1_criteria'],
             'php_signals'      => $ad['php_signals'],
             'channel_metrics'  => $ad['channel_metrics'],
         ]);
  
-        // Сохраняем в БД
         $table = $wpdb->prefix . 'pw_channel_audits';
         $wpdb->insert( $table, [
             'user_id'        => $user_id,
@@ -212,7 +260,7 @@ if ( ! current_user_can( 'manage_options' ) ) {
     }
  
     // ─────────────────────────────────────────────────────────
-    // POST /audit/{id}/unlock — три ветки баланса (§7)
+    // POST /audit/{id}/unlock — только бесплатные кредиты (v4.9-free-only)
     // ─────────────────────────────────────────────────────────
  
     public function unlock_report( WP_REST_Request $request ) {
@@ -222,11 +270,9 @@ if ( ! current_user_can( 'manage_options' ) ) {
         $user_id  = get_current_user_id();
         $table    = $wpdb->prefix . 'pw_channel_audits';
  
-        // БАГ 2 FIX: администратор может разблокировать любой аудит (без фильтра по user_id)
         if ( current_user_can( 'manage_options' ) ) {
             $audit = $wpdb->get_row( $wpdb->prepare(
-                "SELECT * FROM {$table} WHERE id = %d",
-                $audit_id
+                "SELECT * FROM {$table} WHERE id = %d", $audit_id
             ) );
         } else {
             $audit = $wpdb->get_row( $wpdb->prepare(
@@ -238,58 +284,101 @@ if ( ! current_user_can( 'manage_options' ) ) {
         if ( ! $audit ) {
             return new WP_Error( 'not_found', 'Аудит не найден', [ 'status' => 404 ] );
         }
+ 
+        // Уже разблокирован — просто вернуть полный отчёт
         if ( $audit->is_paid ) {
-            return new WP_Error( 'alreadyUnlocked', 'Отчёт уже оплачен', [ 'status' => 400 ] );
+            return rest_ensure_response( $this->normalize_report( $audit, $user_id ) );
+        }
+ 
+        // Проверка кредитов (только для не-администраторов)
+        if ( ! current_user_can( 'manage_options' ) ) {
+            $credit_check = PW_Audit_Credit::check( $user_id );
+            if ( ! $credit_check['allowed'] ) {
+                $reason = $credit_check['reason'] ?? '';
+                if ( $reason === 'daily_limit' ) {
+                    return new WP_Error(
+                        'dailyCreditLimitReached',
+                        'Вы уже получали бесплатный отчёт сегодня. Следующий доступен завтра.',
+                        [ 'status' => 429 ]
+                    );
+                }
+                return new WP_Error(
+                    'creditLimitReached',
+                    'Все 3 бесплатных отчёта использованы.',
+                    [ 'status' => 402 ]
+                );
+            }
+            PW_Audit_Credit::consume( $user_id );
+        }
+ 
+        $wpdb->update( $table,
+            [ 'is_paid' => 1, 'amount_charged' => 0.00 ],
+            [ 'id' => $audit_id ], [ '%d', '%f' ], [ '%d' ]
+        );
+ 
+        $audit    = $wpdb->get_row( $wpdb->prepare(
+            "SELECT * FROM {$table} WHERE id = %d", $audit_id
+        ) );
+        $response = (array) $this->normalize_report( $audit, $user_id );
+        $response['credit_used'] = true;
+        return rest_ensure_response( $response );
+    }
+ 
+    // ─────────────────────────────────────────────────────────
+    // POST /donate — списание доната с баланса (v4.9)
+    // ─────────────────────────────────────────────────────────
+ 
+    public function process_donate( WP_REST_Request $request ) {
+        global $wpdb;
+ 
+        $user_id = get_current_user_id();
+        $amount  = floatval( $request->get_param( 'amount' ) );
+ 
+        if ( $amount <= 0 ) {
+            return new WP_Error( 'invalid_amount',
+                'Сумма должна быть больше нуля', [ 'status' => 400 ] );
         }
  
         $balance = (float) get_user_meta( $user_id, 'payway_withdrawal_balance', true );
- 
-        // Ветка 3: баланс < 0
-        if ( $balance < 0 ) {
-            return new WP_Error( 'negativeBalance', 'Баланс отрицательный. Пополните баланс.', [ 'status' => 402 ] );
+        if ( $balance < $amount ) {
+            return new WP_Error( 'insufficient_balance',
+                'Недостаточно средств на балансе (доступно $'
+                . number_format( $balance, 2 ) . ')', [ 'status' => 402 ] );
         }
  
-        // Ветка 2: баланс = 0 (кредит)
-        if ( $balance == 0 ) {
-            $credit_key = 'payway_audit_credit_' . $user_id;
-            if ( get_transient( $credit_key ) ) {
-                return new WP_Error( 'dailyCreditLimitReached', 'Дневной кредитный лимит использован. Доступен снова завтра или после пополнения баланса.', [ 'status' => 429 ] );
-            }
-            // Транзакция
-            $wpdb->query( 'START TRANSACTION' );
-            $fresh_balance = (float) $wpdb->get_var( "SELECT meta_value FROM {$wpdb->usermeta} WHERE user_id = {$user_id} AND meta_key = 'payway_withdrawal_balance' FOR UPDATE" );
-            if ( $fresh_balance != 0 ) {
-                $wpdb->query( 'ROLLBACK' );
-                return new WP_Error( 'balance_changed', 'Баланс изменился. Повторите попытку.', [ 'status' => 409 ] );
-            }
-            $wpdb->update( $wpdb->usermeta, [ 'meta_value' => '-1.00' ], [ 'user_id' => $user_id, 'meta_key' => 'payway_withdrawal_balance' ], [ '%s' ], [ '%d', '%s' ] );
-            $wpdb->query( $wpdb->prepare( "UPDATE {$table} SET is_paid = 1, amount_charged = 1.00 WHERE id = %d AND user_id = %d", $audit_id, $user_id ) );
-            $wpdb->query( 'COMMIT' );
- 
-            // Transient до полуночи UTC
-            $ttl = strtotime( 'tomorrow 00:00 UTC' ) - time();
-            set_transient( $credit_key, 1, $ttl );
- 
-            $audit = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $audit_id ) );
-            $response = $this->normalize_report( $audit, $user_id );
-            $response['credit_used'] = true;
-            return rest_ensure_response( $response );
-        }
- 
-        // Ветка 1: баланс > 0
+        // Атомарное списание через транзакцию
         $wpdb->query( 'START TRANSACTION' );
-        $fresh_balance = (float) $wpdb->get_var( "SELECT meta_value FROM {$wpdb->usermeta} WHERE user_id = {$user_id} AND meta_key = 'payway_withdrawal_balance' FOR UPDATE" );
-        if ( $fresh_balance <= 0 ) {
+        $fresh = (float) $wpdb->get_var(
+            "SELECT meta_value FROM {$wpdb->usermeta}
+             WHERE user_id = {$user_id}
+             AND meta_key = 'payway_withdrawal_balance' FOR UPDATE"
+        );
+        if ( $fresh < $amount ) {
             $wpdb->query( 'ROLLBACK' );
-            return new WP_Error( 'insufficientBalance', 'Недостаточно средств', [ 'status' => 402 ] );
+            return new WP_Error( 'insufficient_balance',
+                'Недостаточно средств', [ 'status' => 402 ] );
         }
-        $new_balance = $fresh_balance - 1.00;
-        $wpdb->update( $wpdb->usermeta, [ 'meta_value' => number_format( $new_balance, 2, '.', '' ) ], [ 'user_id' => $user_id, 'meta_key' => 'payway_withdrawal_balance' ], [ '%s' ], [ '%d', '%s' ] );
-        $wpdb->query( $wpdb->prepare( "UPDATE {$table} SET is_paid = 1, amount_charged = 1.00 WHERE id = %d AND user_id = %d", $audit_id, $user_id ) );
+        $new_balance = $fresh - $amount;
+        $wpdb->update( $wpdb->usermeta,
+            [ 'meta_value' => number_format( $new_balance, 2, '.', '' ) ],
+            [ 'user_id' => $user_id, 'meta_key' => 'payway_withdrawal_balance' ],
+            [ '%s' ], [ '%d', '%s' ]
+        );
+        $table = $wpdb->prefix . 'payway_donations';
+        $wpdb->insert( $table, [
+            'user_id'    => $user_id,
+            'amount'     => $amount,
+            'message'    => sanitize_text_field( $request->get_param( 'message' ) ?? '' ),
+            'created_at' => current_time( 'mysql' ),
+        ], [ '%d', '%f', '%s', '%s' ] );
         $wpdb->query( 'COMMIT' );
  
-        $audit = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $audit_id ) );
-        return rest_ensure_response( $this->normalize_report( $audit, $user_id ) );
+        return rest_ensure_response( [
+            'success'     => true,
+            'amount'      => $amount,
+            'new_balance' => $new_balance,
+            'message'     => 'Спасибо! Ваш донат принят.',
+        ] );
     }
  
     // ─────────────────────────────────────────────────────────
@@ -318,18 +407,11 @@ if ( ! current_user_can( 'manage_options' ) ) {
     // normalize_report — формирование ответа для Frontend
     // ─────────────────────────────────────────────────────────
  
-    /**
-     * @param object $audit      Строка из БД
-     * @param int    $user_id    Текущий пользователь
-     * @param bool   $list_mode  true = облегчённый вид для истории
-     */
     public function normalize_report( $audit, int $user_id, bool $list_mode = false ) {
         $preview = json_decode( $audit->report_preview ?? '{}', true ) ?: [];
         $full    = json_decode( $audit->report_full   ?? '{}', true ) ?: [];
         $balance = (float) get_user_meta( $user_id, 'payway_withdrawal_balance', true );
  
-        // Базовые поля — всегда присутствуют
-            //  report  Vue: {summary, admission, demonetization, copyright}
         $_b1_risk = 'low';
         if ( $audit->risk_block1 === 'fail' )     $_b1_risk = 'high';
         elseif ( $audit->risk_block1 === 'warn' ) $_b1_risk = 'medium';
@@ -356,9 +438,9 @@ if ( ! current_user_can( 'manage_options' ) ) {
             'channel_thumb'  => $audit->channel_thumb,
             'verdict'        => $audit->verdict,
             'verdict_reason' => $preview['verdict_reason'] ?? ( $full['verdict_reason'] ?? '' ),
-            'block1_status'  => $audit->risk_block1,   // ok | warn | fail
-            'block2_risk'    => $audit->risk_block2,   // low | medium | high
-            'block3_risk'    => $audit->risk_block3,   // low | medium | high
+            'block1_status'  => $audit->risk_block1,
+            'block2_risk'    => $audit->risk_block2,
+            'block3_risk'    => $audit->risk_block3,
             'is_paid'        => (bool) $audit->is_paid,
             'amount_charged' => (float) $audit->amount_charged,
             'time'           => $audit->time,
@@ -376,18 +458,17 @@ if ( ! current_user_can( 'manage_options' ) ) {
                 'php_signals_count' => $preview['php_signals_count']  ?? 0,
                 'block1_criteria'   => $preview['block1_criteria']    ?? [],
             ],
-        'unlock_info'    => [
-    'balance'          => $balance,
-    'credit_available' => PW_Audit_Credit::check( get_current_user_id() )['allowed'],
-    'credit_status'    => PW_Audit_Credit::get_status( get_current_user_id() ),
-],
+            'unlock_info'    => [
+                'balance'          => $balance,
+                'credit_available' => PW_Audit_Credit::check( get_current_user_id() )['allowed'],
+                'credit_status'    => PW_Audit_Credit::get_status( get_current_user_id() ),
+            ],
         ];
  
         if ( $list_mode ) {
             return $response;
         }
  
-        // Полный отчёт — только если оплачен (или admin)
         if ( $audit->is_paid || current_user_can( 'manage_options' ) ) {
             $response['full'] = [
                 'block1_criteria'          => $full['block1_criteria']            ?? $preview['block1_criteria'] ?? [],
@@ -397,7 +478,6 @@ if ( ! current_user_can( 'manage_options' ) ) {
                 'summary_for_moderator'    => $full['summary_for_moderator']      ?? '',
                 'recommendations_for_user' => $full['recommendations_for_user']   ?? [],
                 'channel_metrics'          => $full['channel_metrics']            ?? [],
-                // Sprint 1: новые поля AI-ответа
                 'priority_action'          => $full['priority_action']            ?? '',
                 'retry_context'            => $full['retry_context']              ?? '',
                 'checklist_moderator'      => $full['checklist_moderator']        ?? [],
@@ -414,7 +494,6 @@ if ( ! current_user_can( 'manage_options' ) ) {
  
     // ─────────────────────────────────────────────────────────
     // Вспомогательные методы
- 
     // ─────────────────────────────────────────────────────────
  
     private function is_credit_available( int $user_id, float $balance ) {
@@ -422,15 +501,32 @@ if ( ! current_user_can( 'manage_options' ) ) {
         return ! get_transient( 'payway_audit_credit_' . $user_id );
     }
  
-    /**
-     * Берёт максимальный из двух уровней риска.
-     */
     private function merge_risk( string $r1, string $r2 ) {
         $order = [ 'low' => 0, 'medium' => 1, 'high' => 2 ];
         return ( $order[ $r1 ] ?? 0 ) >= ( $order[ $r2 ] ?? 0 ) ? $r1 : $r2;
     }
  
     public function check_audit_owner( WP_REST_Request $request ) {
-        return is_user_logged_in();
+        if ( is_user_logged_in() ) return true;
+ 
+        foreach ( $_COOKIE as $name => $val ) {
+            if ( strpos( $name, 'wordpress_logged_in_' ) === 0 ) {
+                $uid = wp_validate_auth_cookie( $val, 'logged_in' );
+                if ( $uid ) { wp_set_current_user( $uid ); return true; }
+            }
+        }
+ 
+        $token = $request->get_header( 'X-Payway-Token' );
+        if ( $token ) {
+            $uid = get_transient( 'payway_tok_' . md5( $token ) );
+            if ( $uid ) { wp_set_current_user( (int) $uid ); return true; }
+        }
+ 
+        // Временный лог — убрать после подтверждения работы
+        error_log( 'PW_Audit FAILED. URI=' . ( $_SERVER['REQUEST_URI'] ?? '' )
+            . ' Cookies=' . implode( ',', array_keys( $_COOKIE ) )
+            . ' HasToken=' . ( ! empty( $token ) ? 'yes' : 'no' )
+            . ' UID=' . get_current_user_id() );
+        return false;
     }
 }

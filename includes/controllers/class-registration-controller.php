@@ -1,15 +1,15 @@
 <?php
-
+ 
 if (!defined('ABSPATH')) {
     exit; // Защита от прямого доступа
 }
-
+ 
 /**
  * Контроллер для обработки регистрации пользователей через REST API
  *
  * @author Alexander Kovalev
  * @copyright (c) 18.10.2024, CreativeMotion
- * @version 1.0
+ * @version 1.1 — JWT через PW_JWT_Auth (без внешнего плагина)
  */
 final class RegistrationController extends BaseController
 {
@@ -21,27 +21,27 @@ final class RegistrationController extends BaseController
     protected function validate_request_data(): bool
     {
         $parameters = $this->request->get_json_params();
-
+ 
         if (!isset($parameters['username'])) {
             $this->errors[] = 'Поле email является обязательным.';
         } elseif (!is_email($parameters['username'])) {
             $this->errors[] = 'Неверный формат email.';
         }
-
+ 
         if (!isset($parameters['password'])) {
             $this->errors[] = 'Поле password является обязательным.';
         } elseif (strlen($parameters['password']) < 6) {
             $this->errors[] = 'Пароль должен содержать не менее 6 символов.';
         }
-
+ 
         // Проверка, существует ли пользователь с таким email
         if (isset($parameters['username']) && email_exists($parameters['username'])) {
             $this->errors[] = 'Пользователь с таким email уже существует.';
         }
-
+ 
         return empty($this->errors);
     }
-
+ 
     /**
      * Сбор и очистка данных из запроса
      *
@@ -50,13 +50,13 @@ final class RegistrationController extends BaseController
     protected function sanitize_request_data(): array
     {
         $parameters = $this->request->get_json_params();
-
+ 
         return [
             'email' => sanitize_email($parameters['username']), // Очистка email
             'password' => sanitize_text_field($parameters['password']), // Очистка пароля
         ];
     }
-
+ 
     /**
      * Форматирование данных для ответа
      *
@@ -68,7 +68,7 @@ final class RegistrationController extends BaseController
         // В данном случае форматирование не требуется, так как регистрация возвращает только токен
         return [];
     }
-
+ 
     /**
      * Обработка запроса на регистрацию пользователя
      *
@@ -80,61 +80,58 @@ final class RegistrationController extends BaseController
         if (!$this->validate_request_data()) {
             return $this->send_error('Неверные данные запроса: ' . implode(', ', $this->errors));
         }
-
+ 
         // Очищаем данные
         $data = $this->sanitize_request_data();
-
+ 
         // Создаем пользователя
         $user_id = wp_create_user($data['email'], $data['password'], $data['email']);
-
+ 
         if (is_wp_error($user_id)) {
             return $this->send_error('Ошибка регистрации: ' . $user_id->get_error_message());
         }
-
+ 
         // Устанавливаем пользователя как текущего и создаем JWT-токен
         // Link referral if cookie exists
         payway_link_referral( $user_id, $data['email'] );
         wp_set_current_user($user_id);
         wp_set_auth_cookie($user_id);
-
+ 
         // Генерация JWT-токена
         $jwt_data = $this->generate_jwt_token();
-
+ 
         if (is_wp_error($jwt_data) || !isset($jwt_data['token'])) {
             return $this->send_error('Ошибка генерации JWT-токена!');
         }
-
+ 
         $jwt_token = $jwt_data['token'];
-
+ 
         if (!$jwt_token) {
             return $this->send_error('Ошибка генерации JWT-токена.');
         }
-
+ 
         // Возвращаем успешный ответ с токеном
         return $this->send_success([
             'message' => 'Пользователь успешно зарегистрирован.',
             'token' => $jwt_token,
         ]);
     }
-
+ 
     /**
-     * Генерация JWT-токена
+     * Генерация JWT-токена через встроенный PW_JWT_Auth.
      *
-     * @return WP_Error|array|null Вернет сгенерированный JWT-токен или null,
-     * если класс JWT_Auth_Public не найден или возникла ошибка
+     * @return WP_Error|array|null
      */
     protected function generate_jwt_token(): WP_Error|array|null
     {
-        if (!class_exists('JWT_Auth_Public')) {
+        if (!class_exists('PW_JWT_Auth')) {
             return null;
         }
-
-        // Генерация токена с использованием плагина JWT Authentication for WP-API
-        $jwt_auth = new JWT_Auth_Public('jwt-auth', '1.0.0');
-
-        return $jwt_auth->generate_token($this->request);
+ 
+        // Используем собственный класс вместо внешнего плагина
+        return PW_JWT_Auth::generate_token($this->request);
     }
-
+ 
     /**
      * Проверка прав доступа пользователя
      *

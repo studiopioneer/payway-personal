@@ -2,21 +2,22 @@
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
-
+ 
 /**
  * Класс-активатор плагина Payway.
  * Создаёт / обновляет таблицы БД и WP-страницы при активации.
  *
  * @package Payway
  * @version 7.0  — добавлена таблица channel_audits (Payway_Audit_DB)
+ * @version 4.9  — добавлена таблица payway_donations
  */
 class Payway_Activator {
-
+ 
 	private static function get_charset_collate(): string {
 		global $wpdb;
 		return $wpdb->get_charset_collate();
 	}
-
+ 
 	public static function activate(): void {
 		self::create_tables();
 		self::update_column_enum();
@@ -24,13 +25,13 @@ class Payway_Activator {
 		// ── Sprint 1: Channel Audit ──────────────────────────────────────────
 		Payway_Audit_DB::install();
 	}
-
+ 
 	private static function create_tables(): void {
 		global $wpdb;
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-
+ 
 		$charset_collate = self::get_charset_collate();
-
+ 
 		$tables = [
 			"CREATE TABLE IF NOT EXISTS {$wpdb->prefix}payway_projects (
 				id mediumint(9) NOT NULL AUTO_INCREMENT,
@@ -45,7 +46,7 @@ class Payway_Activator {
 				time datetime DEFAULT '0000-00-00 00:00:00' NOT NULL,
 				PRIMARY KEY (id)
 			) $charset_collate;",
-
+ 
 			"CREATE TABLE IF NOT EXISTS {$wpdb->prefix}payway_withdrawal (
 				id mediumint(9) NOT NULL AUTO_INCREMENT,
 				user_id int(11) NOT NULL,
@@ -58,7 +59,7 @@ class Payway_Activator {
 				time datetime DEFAULT '0000-00-00 00:00:00' NOT NULL,
 				PRIMARY KEY (id)
 			) $charset_collate;",
-
+ 
 			"CREATE TABLE IF NOT EXISTS {$wpdb->prefix}payway_unlock (
 				id mediumint(9) NOT NULL AUTO_INCREMENT,
 				user_id int(11) NOT NULL,
@@ -68,7 +69,7 @@ class Payway_Activator {
 				time datetime DEFAULT '0000-00-00 00:00:00' NOT NULL,
 				PRIMARY KEY (id)
 			) $charset_collate;",
-
+ 
 			"CREATE TABLE IF NOT EXISTS {$wpdb->prefix}payway_stats (
 				id MEDIUMINT(9) NOT NULL AUTO_INCREMENT,
 				project_id MEDIUMINT(9) NOT NULL,
@@ -85,7 +86,7 @@ class Payway_Activator {
 				PRIMARY KEY (id),
 				FOREIGN KEY (project_id) REFERENCES {$wpdb->prefix}payway_projects(id) ON DELETE CASCADE
 			) $charset_collate;",
-
+ 
 			"CREATE TABLE IF NOT EXISTS {$wpdb->prefix}payway_referrals (
 				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
 				referrer_id BIGINT(20) UNSIGNED NOT NULL,
@@ -96,35 +97,46 @@ class Payway_Activator {
 				KEY referrer_id (referrer_id),
 				KEY referral_code (referral_code)
 			) $charset_collate;",
+ 
+			// v4.9: Таблица донатов
+			"CREATE TABLE IF NOT EXISTS {$wpdb->prefix}payway_donations (
+				id          BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				user_id     BIGINT(20) UNSIGNED NOT NULL,
+				amount      DECIMAL(11,2) NOT NULL,
+				message     TEXT DEFAULT '',
+				created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+				PRIMARY KEY (id),
+				KEY user_id (user_id)
+			) $charset_collate;",
 		];
-
+ 
 		foreach ( $tables as $sql ) {
 			dbDelta( $sql );
 		}
 	}
-
+ 
 	private static function update_column_enum(): void {
 		global $wpdb;
-
+ 
 		$new_enum_type = "ENUM('approved', 'review', 'rejected', 'paid') DEFAULT 'review' NOT NULL";
-
+ 
 		$targets = [
 			'payway_unlock'     => 'status',
 			'payway_withdrawal' => 'status',
 		];
-
+ 
 		foreach ( $targets as $table_suffix => $column_name ) {
 			$table_name = $wpdb->prefix . $table_suffix;
 			$query      = $wpdb->prepare( 'SHOW COLUMNS FROM ' . $table_name . ' LIKE %s', $column_name );
 			$column     = $wpdb->get_row( $query );
-
+ 
 			if ( $column && isset( $column->Type ) && strpos( $column->Type, "'paid'" ) === false ) {
 				// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 				$wpdb->query( "ALTER TABLE {$table_name} MODIFY {$column_name} {$new_enum_type}" );
 			}
 		}
 	}
-
+ 
 	private static function create_admin_pages(): void {
 		$pages = [
 			[ 'slug' => 'account',  'title' => 'Payway личный кабинет' ],
@@ -133,7 +145,7 @@ class Payway_Activator {
 			[ 'slug' => 'projects', 'title' => 'Мои проекты'           ],
 			[ 'slug' => 'stats',    'title' => 'Статистика'            ],
 		];
-
+ 
 		foreach ( $pages as $page ) {
 			if ( ! get_page_by_path( $page['slug'] ) ) {
 				wp_insert_post( [
@@ -147,5 +159,5 @@ class Payway_Activator {
 		}
 	}
 }
-
+ 
 register_activation_hook( PAYWAY_PLUGIN_FILE, [ 'Payway_Activator', 'activate' ] );

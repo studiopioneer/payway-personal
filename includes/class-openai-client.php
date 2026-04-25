@@ -3,6 +3,7 @@
  * PW_OpenAI_Client — формирование промпта и запрос к gpt-4o
  * Промпт строго по ТЗ §6
  * Sprint 6.3: prompt upgrade — конкретные числа + actionable checklist
+ * Sprint v5.0: добавлен блок niche_analysis
  */
 class PW_OpenAI_Client {
  
@@ -15,13 +16,6 @@ class PW_OpenAI_Client {
         $this->api_key = get_option( 'payway_openai_api_key', '' );
     }
  
-    /**
-     * Запускает анализ и возвращает валидированный JSON-ответ.
-     *
-     * @param array $channel_data   Данные YouTube (channel + videos)
-     * @param array $analyzer_data  Результат PW_Audit_Analyzer::analyze()
-     * @return array|WP_Error
-     */
     public function analyze( array $channel_data, array $analyzer_data ) {
         if ( empty( $this->api_key ) ) {
             return new WP_Error( 'no_api_key', 'OpenAI API key не настроен' );
@@ -33,10 +27,8 @@ class PW_OpenAI_Client {
             [ 'role' => 'user',   'content' => $user_message ],
         ];
  
-        // Первая попытка
         $result = $this->call_api( $messages );
         if ( is_wp_error( $result ) ) {
-            // Retry
             $result = $this->call_api( $messages );
         }
  
@@ -44,10 +36,8 @@ class PW_OpenAI_Client {
             return $result;
         }
  
-        // Валидация JSON-схемы
         $validated = $this->validate_response( $result );
         if ( is_wp_error( $validated ) ) {
-            // Retry с явным указанием на ошибку
             $messages[] = [ 'role' => 'assistant', 'content' => json_encode( $result ) ];
             $messages[] = [ 'role' => 'user', 'content' => 'Ответ не соответствует требуемой JSON-схеме. Повтори ответ строго по схеме, без лишних ключей.' ];
             $result2    = $this->call_api( $messages );
@@ -64,7 +54,7 @@ class PW_OpenAI_Client {
     }
  
     // ─────────────────────────────────────────────────────────
-    // SYSTEM PROMPT (строго по ТЗ §6.1 + Sprint 6.3)
+    // SYSTEM PROMPT (Sprint 6.3 + v5.0 niche_analysis)
     // ─────────────────────────────────────────────────────────
  
     private function get_system_prompt() {
@@ -215,10 +205,29 @@ class PW_OpenAI_Client {
     {"title": "Краткий заголовок", "text": "Подробное описание с конкретными числами", "tag": "Критично"},
     {"title": "Заголовок", "text": "Описание", "tag": "Важно"},
     {"title": "Заголовок", "text": "Описание", "tag": "Рекомендуется"}
-  ]
+  ],
+  "niche_analysis": {
+    "niche_name": "название ниши на русском, 1-3 слова",
+    "niche_er_median": 0.0,
+    "niche_freq_median": 0.0,
+    "niche_duration_median": 0.0,
+    "channel_position": "2-3 предложения: как канал выглядит на фоне ниши с конкретными числами",
+    "niche_trends": ["тренд 1", "тренд 2", "тренд 3"],
+    "format_recommendations": ["формат 1", "формат 2", "формат 3"],
+    "growth_potential": "2-3 предложения о потенциале роста в нише"
+  }
 }
  
 Поле tag в recommendations_for_user СТРОГО по-русски: "Критично", "Важно", "Рекомендуется".
+ 
+ОБЯЗАТЕЛЬНЫЙ БЛОК niche_analysis — правила заполнения:
+- niche_name: конкретное название, например «Военная аналитика», «Кулинария», «ИТ-образование»
+- niche_er_median: реальная медиана ER% для каналов 5–50k подписчиков в этой нише
+- niche_freq_median: реальная медианная частота публикаций в месяц для ниши
+- niche_duration_median: реальная медианная длина видео в минутах для ниши
+- niche_trends: актуальные форматы/темы, набирающие просмотры в этой нише в 2025–2026
+- format_recommendations: конкретные форматы видео исходя из данных канала, не общие советы
+- channel_position: сравнение с реальными показателями ниши, с конкретными числами
  
 КРИТИЧЕСКИЕ ПРАВИЛА ФОРМИРОВАНИЯ РЕКОМЕНДАЦИЙ:
 1. Каждая рекомендация ОБЯЗАНА содержать конкретные цифры из переданных данных.
@@ -237,7 +246,7 @@ PROMPT;
     }
  
     // ─────────────────────────────────────────────────────────
-    // USER MESSAGE (§6.2 + Sprint 6.3)
+    // USER MESSAGE (§6.2 + Sprint 6.3 + v5.0 niche data)
     // ─────────────────────────────────────────────────────────
  
     private function build_user_message( array $yt_data, array $ad ) {
@@ -323,6 +332,41 @@ PROMPT;
             }
         }
  
+        // v5.0: Данные для анализа ниши
+        $niche_avg_dur_sec = 0;
+        $niche_best_video  = null;
+        foreach ( $videos_list as $nv ) {
+            $niche_avg_dur_sec += $nv['duration_sec'] ?? 0;
+            if ( ! $niche_best_video || ( $nv['view_count'] ?? 0 ) > ( $niche_best_video['view_count'] ?? 0 ) ) {
+                $niche_best_video = $nv;
+            }
+        }
+        $niche_avg_dur_min = count( $videos_list ) > 0
+            ? round( $niche_avg_dur_sec / count( $videos_list ) / 60, 1 ) : 0;
+ 
+        $niche_raw_tags = array_slice( $yt_data['videos'] ?? [], 0, 5 );
+        $niche_all_tags = [];
+        foreach ( $niche_raw_tags as $nvid ) {
+            $niche_all_tags = array_merge( $niche_all_tags, $nvid['tags'] ?? [] );
+        }
+        $niche_tags_str = implode( ', ', array_slice( array_unique( $niche_all_tags ), 0, 20 ) );
+ 
+        $niche_topic_cats = implode( ', ', $metrics['topicCategories'] ?? [] ) ?: 'не указаны';
+        $niche_country    = $metrics['country'] ?? 'не указана';
+ 
+        $niche_section  = "\n\nДАННЫЕ ДЛЯ АНАЛИЗА НИШИ:\n";
+        $niche_section .= "- Топик-категории: {$niche_topic_cats}\n";
+        $niche_section .= "- Средняя длина видео: {$niche_avg_dur_min} мин.\n";
+        $niche_section .= "- Страна канала: {$niche_country}\n";
+        if ( $niche_best_video ) {
+            $niche_section .= '- Лучшее видео: "' . ( $niche_best_video['title'] ?? '' ) . '" — '
+                . ( $niche_best_video['view_count'] ?? 0 ) . ' просмотров, ER '
+                . ( $niche_best_video['er'] ?? 0 ) . "%\n";
+        }
+        if ( $niche_tags_str ) {
+            $niche_section .= "- Популярные теги: {$niche_tags_str}\n";
+        }
+ 
         return <<<MSG
 ## Данные канала для аудита
  
@@ -369,11 +413,14 @@ block1_fail = {$b1fail}
 {$video_list}
 {$videos_summary}
 ---
+{$niche_section}
+---
  
 Проведи аудит Блока 2 (риски демонетизации) и Блока 3 (авторские права).
 Верни JSON строго по схеме из system message. Учти block1_fail при формировании verdict.
 ВАЖНО: поле tag в recommendations_for_user — строго по-русски: «Критично», «Важно», «Рекомендуется».
 ВАЖНО: используй КОНКРЕТНЫЕ ФАКТЫ из секции выше дословно в тексте рекомендаций.
+ВАЖНО: обязательно заполни блок niche_analysis на основе раздела «ДАННЫЕ ДЛЯ АНАЛИЗА НИШИ».
 MSG;
     }
  
@@ -386,7 +433,7 @@ MSG;
             'model'       => self::MODEL,
             'messages'    => $messages,
             'temperature' => 0.2,
-            'max_tokens'  => 3000,
+            'max_tokens'  => 3500,
             'response_format' => [ 'type' => 'json_object' ],
         ]);
  
@@ -426,7 +473,7 @@ MSG;
     }
  
     // ─────────────────────────────────────────────────────────
-    // Валидация JSON-схемы (§6.3)
+    // Валидация JSON-схемы (§6.3 + v5.0)
     // ─────────────────────────────────────────────────────────
  
     private function validate_response( array $data ) {
@@ -453,7 +500,6 @@ MSG;
             }
         }
  
-        // Нормализуем массивы сигналов
         foreach ( [ 'block2_signals', 'block3_signals' ] as $field ) {
             if ( ! is_array( $data[ $field ] ) ) {
                 $data[ $field ] = [];
@@ -467,11 +513,9 @@ MSG;
             unset( $sig );
         }
  
-        // Sprint 1: нормализация recommendations_for_user (поддержка старого и нового формата)
         if ( ! is_array( $data['recommendations_for_user'] ) ) {
             $data['recommendations_for_user'] = [];
         }
-        // Нормализуем: если элемент строка — конвертируем в объект
         foreach ( $data['recommendations_for_user'] as &$rec ) {
             if ( is_string( $rec ) ) {
                 $rec = [
@@ -487,7 +531,6 @@ MSG;
         }
         unset( $rec );
  
-        // Sprint 1: новые поля — устанавливаем дефолты если AI не вернул
         $data['priority_action']     = $data['priority_action'] ?? '';
         $data['retry_context']       = $data['retry_context'] ?? '';
         $data['checklist_moderator'] = $data['checklist_moderator'] ?? [];
@@ -498,6 +541,9 @@ MSG;
         ];
         $data['content_allowed']   = $data['content_allowed'] ?? [];
         $data['content_forbidden'] = $data['content_forbidden'] ?? [];
+ 
+        // v5.0: niche_analysis — дефолт null если AI не вернул
+        $data['niche_analysis'] = $data['niche_analysis'] ?? null;
  
         if ( ! is_array( $data['checklist_moderator'] ) ) {
             $data['checklist_moderator'] = [];

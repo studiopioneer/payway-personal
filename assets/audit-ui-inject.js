@@ -264,19 +264,20 @@
       '.pw-table-legend{display:flex;gap:16px;margin-top:8px;font-size:11px;color:#aaa;flex-wrap:wrap}',
       '.pw-legend-sq{width:10px;height:10px;border-radius:2px;display:inline-block;margin-right:4px;vertical-align:middle}',
       /* Donate block */
-      '.pw-donate-section{margin:16px 18px;padding:16px 20px;background:linear-gradient(135deg,#fff5f5 0%,#fff 100%);border:1px solid #fecaca;border-radius:12px;max-width:520px}',
-      '.pw-donate-header{display:flex;align-items:flex-start;gap:14px;margin-bottom:16px}',
-      '.pw-donate-title{font-size:14px;font-weight:600;color:#1a1a1a;margin-bottom:5px}',
-      '.pw-donate-sub{font-size:12px;color:#666;line-height:1.6}',
-      '.pw-donate-amounts{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}',
-      '.pw-donate-amt-btn{height:34px;padding:0 16px;border-radius:6px;border:1px solid #e8e8e8;background:#fff;font-size:13px;font-weight:500;color:#555;cursor:pointer}',
+      '.pw-donate-section{margin:16px 18px;padding:12px 16px;background:linear-gradient(135deg,#fff5f5 0%,#fff 100%);border:1px solid #fecaca;border-radius:12px}',
+      '.pw-donate-header{display:flex;align-items:center;gap:10px;margin-bottom:0}',
+      '.pw-donate-title{font-size:13px;font-weight:600;color:#1a1a1a;margin-bottom:2px}',
+      '.pw-donate-sub{font-size:12px;color:#666;line-height:1.4}',
+      '.pw-donate-amounts{display:flex;gap:6px;flex-shrink:0}',
+      '.pw-donate-amt-btn{height:34px;padding:0 12px;border-radius:6px;border:1px solid #e8e8e8;background:#fff;font-size:13px;font-weight:500;color:#555;cursor:pointer}',
       '.pw-donate-amt-btn:hover{border-color:#E8192C;color:#E8192C}',
       '.pw-donate-amt-btn.active{background:#E8192C;border-color:#E8192C;color:#fff}',
-      '.pw-donate-input-row{display:flex;align-items:center;gap:0;margin-bottom:12px;max-width:200px}',
-      '.pw-donate-prefix{height:36px;padding:0 10px;background:#f9f9f9;border:1px solid #e8e8e8;border-right:none;border-radius:6px 0 0 6px;font-size:14px;color:#aaa;display:flex;align-items:center}',
-      '.pw-donate-input{height:36px;padding:0 10px;border:1px solid #e8e8e8;border-radius:0 6px 6px 0;font-size:14px;width:120px;outline:none}',
-      '.pw-donate-btn{height:38px;padding:0 20px;background:#E8192C;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer}',
-      '.pw-donate-result{margin-top:10px;font-size:13px;padding:8px 12px;border-radius:6px}',
+      '.pw-donate-input-row{display:flex;align-items:center;gap:0}',
+      '.pw-donate-prefix{height:34px;padding:0 8px;background:#f9f9f9;border:1px solid #e8e8e8;border-right:none;border-radius:6px 0 0 6px;font-size:14px;color:#aaa;display:flex;align-items:center}',
+      '.pw-donate-input{height:34px;padding:0 10px;border:1px solid #e8e8e8;border-radius:0 6px 6px 0;font-size:14px;width:90px;outline:none}',
+      '.pw-donate-btn{height:34px;padding:0 16px;background:#E8192C;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap}',
+      '.pw-donate-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}',
+      '.pw-donate-result{margin-top:8px;font-size:13px;padding:6px 12px;border-radius:6px}',
       '.pw-donate-result.success{background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0}',
       '.pw-donate-result.error{background:#fef2f2;color:#dc2626;border:1px solid #fecaca}',
     ].join('');
@@ -693,11 +694,12 @@
  
     var textWrap = h('div', {});
     textWrap.appendChild(h('div', { class: 'pw-donate-title' }, 'Нам важна ваша поддержка'));
-    textWrap.appendChild(h('div', { class: 'pw-donate-sub' }, 'Мы вложили много сил в этот инструмент — более 50 часов разработки, чтобы вы получали честный и глубокий анализ своего канала. Если отчёт оказался полезным, нам будет приятна любая поддержка. Это помогает нам развивать PayWay дальше.'));
+    textWrap.appendChild(h('div', { class: 'pw-donate-sub' }, 'Если отчёт оказался полезным — поддержите нас. Это помогает развивать PayWay.'));
     header.appendChild(textWrap);
     section.appendChild(header);
  
-    // Amount buttons
+    // Controls: amounts + input + button in one row
+    var controlsRow = h('div', { class: 'pw-donate-controls' });
     var amountsBtns = h('div', { class: 'pw-donate-amounts' });
     var selectedAmount = 0;
     var amountInput;
@@ -712,7 +714,7 @@
       });
       amountsBtns.appendChild(amtBtn);
     });
-    section.appendChild(amountsBtns);
+    controlsRow.appendChild(amountsBtns);
  
     // Custom amount input
     var inputRow = h('div', { class: 'pw-donate-input-row' });
@@ -729,11 +731,12 @@
     });
     inputRow.appendChild(pfx);
     inputRow.appendChild(amountInput);
-    section.appendChild(inputRow);
+    controlsRow.appendChild(inputRow);
  
     // Submit button
     var submitBtn = h('button', { class: 'pw-donate-btn' }, 'Отправить донат с баланса');
-    section.appendChild(submitBtn);
+    controlsRow.appendChild(submitBtn);
+    section.appendChild(controlsRow);
  
     // Result message
     var resultEl = h('div', { class: 'pw-donate-result', style: 'display:none' });
@@ -763,9 +766,7 @@
       .then(function(r) { return r.json(); })
       .then(function(data) {
         if (data && data.success) {
-          amountsBtns.style.display = 'none';
-          inputRow.style.display = 'none';
-          submitBtn.style.display = 'none';
+          controlsRow.style.display = 'none';
           resultEl.className = 'pw-donate-result success';
           resultEl.innerHTML = '&#10084;&#65039; Спасибо! Донат $' + amount.toFixed(2) + ' принят. Это очень важно для нас.';
           resultEl.style.display = 'block';

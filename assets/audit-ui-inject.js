@@ -1,5 +1,5 @@
 /**
- * PayWay Audit UI Injector v4.7-loader
+ * PayWay Audit UI Injector v5.1-aislop
  * Читает данные из Pinia store и переестраивает DOM под прототип v2
  *
  * store.report  : { verdict, verdict_reason, summary, admission, demonetization, copyright }
@@ -302,6 +302,26 @@
       '.pw-format-item{font-size:12px;color:#555;padding:8px 12px;background:#f9fafb;border-radius:7px;border-left:3px solid #E8192C;line-height:1.55}',
       '.pw-niche-growth{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px 14px;font-size:12px;color:#92400e;line-height:1.6}',
       '.pw-niche-na{font-size:13px;color:#aaa;padding:16px 0;font-style:italic}',
+      '.pw-aislop-wrap{display:flex;flex-direction:column;gap:16px}',
+      '.pw-aislop-summary{border-radius:8px;padding:14px 16px}',
+      '.pw-aislop-summary-low{background:#f0fdf4;border:1px solid #bbf7d0}',
+      '.pw-aislop-summary-med{background:#fffbeb;border:1px solid #fde68a}',
+      '.pw-aislop-summary-high{background:#fef2f2;border:1px solid #fecaca}',
+      '.pw-aislop-sum-title{font-size:13px;font-weight:600;margin-bottom:6px}',
+      '.pw-aislop-summary-low .pw-aislop-sum-title{color:#15803d}',
+      '.pw-aislop-summary-med .pw-aislop-sum-title{color:#92400e}',
+      '.pw-aislop-summary-high .pw-aislop-sum-title{color:#991b1b}',
+      '.pw-aislop-sum-desc{font-size:13px;line-height:1.6}',
+      '.pw-aislop-summary-low .pw-aislop-sum-desc{color:#166534}',
+      '.pw-aislop-summary-med .pw-aislop-sum-desc{color:#92400e}',
+      '.pw-aislop-summary-high .pw-aislop-sum-desc{color:#991b1b}',
+      '.pw-aislop-list{display:flex;flex-direction:column;gap:8px}',
+      '.pw-aislop-row{display:flex;align-items:center;gap:10px;padding:10px 13px;background:#f9fafb;border-radius:8px;border:1px solid #f0f0f0}',
+      '.pw-aislop-sig-info{flex:1}',
+      '.pw-aislop-sig-title{font-size:12px;font-weight:500;color:#1a1a1a;margin-bottom:2px}',
+      '.pw-aislop-sig-detail{font-size:11px;color:#888;line-height:1.5}',
+      '.pw-blocks-4{grid-template-columns:repeat(4,minmax(0,1fr))!important}',
+      '@media(max-width:640px){.pw-blocks-4{grid-template-columns:repeat(2,minmax(0,1fr))!important}}',
     ].join('');
     document.head.appendChild(style);
   }
@@ -553,13 +573,17 @@
   }
  
   // —— 3 карточки блоков ———————————————————————————————————————————————————————————————————————
-  function buildBlocksRow(report) {
-    var row = h('div', { class: 'pw-blocks-row' });
-    [
+  function buildBlocksRow(report, aislopRisk) {
+    var blocks = [
       { label: 'Блок 1', title: 'Допуск к монетизации',      risk: (report.admission      && report.admission.risk)      || 'ok'  },
       { label: 'Блок 2', title: 'Риск демонетизации',        risk: (report.demonetization && report.demonetization.risk) || 'low' },
       { label: 'Блок 3', title: 'Авторские права / страйки', risk: (report.copyright      && report.copyright.risk)      || 'low' },
-    ].forEach(function (b) {
+    ];
+    if (aislopRisk) {
+      blocks.push({ label: 'Блок 4', title: 'AI Slop', risk: aislopRisk });
+    }
+    var row = h('div', { class: 'pw-blocks-row' + (aislopRisk ? ' pw-blocks-4' : '') });
+    blocks.forEach(function (b) {
       var card = h('div', { class: 'pw-bcard' });
       card.appendChild(h('div', { class: 'pw-bcard-label' }, b.label));
       card.appendChild(h('div', { class: 'pw-bcard-title' }, b.title));
@@ -1217,6 +1241,78 @@
     return wrap;
   }
  
+ 
+  // —— Sprint v5.1: Вкладка «AI Slop» ————————————————————————————————————————————
+  function buildAislopTab(full) {
+    var signals = (full && Array.isArray(full.aislop_signals)) ? full.aislop_signals : [];
+    var risk    = (full && full.aislop_risk) || 'low';
+    var summary = (full && full.aislop_summary) || null;
+ 
+    var SIGNAL_LABELS = {
+      'uniform_duration':     'Одинаковая длительность видео',
+      'template_titles':      'Шаблонные заголовки',
+      'reused_keywords':      'Повторяющиеся ключевые слова',
+      'low_comment_ratio':    'Низкое соотношение комментариев к просмотрам',
+      'high_velocity':        'Высокая частота публикаций',
+      'no_ai_disclosure':     'Нет пометки об использовании AI',
+      'uniform_descriptions': 'Однотипные описания видео',
+      'high_risk_niche':      'Ниша с высоким риском AI-контента',
+    };
+ 
+    var wrap = h('div', { class: 'pw-aislop-wrap' });
+ 
+    if (summary && (summary.title || summary.description)) {
+      var sCls = risk === 'high' ? 'pw-aislop-summary-high'
+               : risk === 'medium' ? 'pw-aislop-summary-med'
+               : 'pw-aislop-summary-low';
+      var sBox = h('div', { class: 'pw-aislop-summary ' + sCls });
+      sBox.appendChild(h('div', { class: 'pw-aislop-sum-title' },
+        '[AI] ' + (summary.title || 'AI Slop анализ')));
+      if (summary.description) {
+        sBox.appendChild(h('div', { class: 'pw-aislop-sum-desc' }, summary.description));
+      }
+      wrap.appendChild(sBox);
+    } else if (risk === 'low') {
+      var okBox = h('div', { class: 'pw-niche-position' });
+      okBox.appendChild(h('div', { class: 'pw-niche-pos-title' }, '✅ AI Slop не обнаружен'));
+      okBox.appendChild(h('div', { class: 'pw-niche-pos-text' },
+        'PHP-анализатор не выявил признаков автоматизированного или конвейерного производства контента.'));
+      wrap.appendChild(okBox);
+    }
+ 
+    if (signals.length) {
+      var sigSection = h('div');
+      sigSection.appendChild(h('div', { class: 'pw-niche-section-label' },
+        'Обнаруженные сигналы (' + signals.length + ')'));
+      var sigList = h('div', { class: 'pw-aislop-list' });
+      signals.forEach(function (sig) {
+        var row     = h('div', { class: 'pw-aislop-row' });
+        var sevU    = (sig.severity || 'MEDIUM').toUpperCase();
+        var dCls    = sevU === 'HIGH' ? 'pw-rl-high' : 'pw-rl-med';
+        row.appendChild(h('div', { class: 'pw-rl-dot ' + dCls }));
+        var info = h('div', { class: 'pw-aislop-sig-info' });
+        info.appendChild(h('div', { class: 'pw-aislop-sig-title' },
+          SIGNAL_LABELS[sig.signal] || sig.signal || ''));
+        if (sig.detail) {
+          info.appendChild(h('div', { class: 'pw-aislop-sig-detail' }, sig.detail));
+        }
+        row.appendChild(info);
+        var sevLabel = sevU === 'HIGH' ? 'Высокий' : 'Средний';
+        row.appendChild(h('span',
+          { class: 'pw-rbadge ' + (sevU === 'HIGH' ? 'pw-rb-high' : 'pw-rb-medium') },
+          sevLabel));
+        sigList.appendChild(row);
+      });
+      sigSection.appendChild(sigList);
+      wrap.appendChild(sigSection);
+    }
+ 
+    var explBox = h('div', { class: 'pw-niche-growth' });
+    explBox.innerHTML = '<strong>AI Slop</strong> — контент, созданный преимущественно AI-инструментами без уникальной ценности. YouTube и AdSense борются с mass-produced контентом — каналы с множеством таких сигналов могут получить отказ в монетизации.';
+    wrap.appendChild(explBox);
+    return wrap;
+  }
+ 
   function buildFullReport(report, full) {
     var wrap = h('div', { class: 'pw-card' });
  
@@ -1261,6 +1357,7 @@
       { label: 'Блок 3 · Страйки',       risk: b3Risk, panelTitle: 'Риски авторских прав',       type: 'signals3',  data: b3Sigs   },
       { label: 'Метрики видео',           risk: null,   panelTitle: 'Метрики видео канала',       type: 'videos',    data: full     },
       { label: 'Ниша',                    risk: null,   panelTitle: 'Анализ ниши и трендов',       type: 'niche',     data: full     },
+      { label: 'AI Slop',                 risk: (full && full.aislop_risk) || null, panelTitle: 'AI Slop детектор', type: 'aislop', data: full },
     ];
  
     // —— Tab row ——
@@ -1403,6 +1500,11 @@
         // Sprint v5.0: вкладка «Ниша»
         var nicheContent = buildNicheTab(full);
         if (nicheContent) panel.appendChild(nicheContent);
+      }
+      } else if (td.type === 'aislop') {
+        // Sprint v5.1: вкладка «AI Slop»
+        var aislopContent = buildAislopTab(full);
+        if (aislopContent) panel.appendChild(aislopContent);
       }
  
       panels.push(panel);
@@ -1878,8 +1980,9 @@
     // 1. Вердикт
     inject.appendChild(buildVerdictBanner(report));
  
-    // 2. Три блока-карточки
-    inject.appendChild(buildBlocksRow(report));
+    // 2. Три блока-карточки (+ Блок 4 AI Slop)
+    var aislopRisk = (preview && preview.aislop_risk) || (full && full.aislop_risk) || null;
+    inject.appendChild(buildBlocksRow(report, aislopRisk));
  
     // v5.0: Score-бейдж готовности к монетизации
     var b1CriteriaScore = (full && Array.isArray(full.block1_criteria)) ? full.block1_criteria : [];

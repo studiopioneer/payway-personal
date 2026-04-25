@@ -4,6 +4,7 @@
  * Промпт строго по ТЗ §6
  * Sprint 6.3: prompt upgrade — конкретные числа + actionable checklist
  * Sprint v5.0: добавлен блок niche_analysis
+ * Sprint v5.1: aislop_signals в промпте, aislop_summary в схеме
  */
 class PW_OpenAI_Client {
  
@@ -215,8 +216,19 @@ class PW_OpenAI_Client {
     "niche_trends": ["тренд 1", "тренд 2", "тренд 3"],
     "format_recommendations": ["формат 1", "формат 2", "формат 3"],
     "growth_potential": "2-3 предложения о потенциале роста в нише"
+  },
+  "aislop_summary": {
+    "risk": "low" | "medium" | "high",
+    "title": "AI Slop: короткий заголовок (5-7 слов)",
+    "description": "2-3 предложения: что именно указывает на AI-контент или mass-produced контент, опираясь на переданные сигналы PHP"
   }
 }
+ 
+ОБЯЗАТЕЛЬНЫЙ БЛОК aislop_summary — правила заполнения:
+- risk: определяй на основе переданных PHP-сигналов aislop (low/medium/high из раздела AI SLOP DETECTION)
+- title: краткий заголовок на русском, например «Признаки mass-produced AI-контента» или «AI-сигналы не обнаружены»
+- description: интерпретируй переданные PHP-сигналы aislop — что конкретно найдено, почему это риск
+- Если PHP не передал aislop-сигналов и risk=low — напиши об отсутствии признаков AI-слопа
  
 Поле tag в recommendations_for_user СТРОГО по-русски: "Критично", "Важно", "Рекомендуется".
  
@@ -367,6 +379,22 @@ PROMPT;
             $niche_section .= "- Популярные теги: {$niche_tags_str}\n";
         }
  
+ 
+        // v5.1: AI Slop сигналы из PHP-анализатора
+        $aislop_signals = $ad['aislop_signals'] ?? [];
+        $aislop_risk    = $ad['aislop_risk']    ?? 'low';
+        $aislop_lines   = [];
+        foreach ( $aislop_signals as $sig ) {
+            $aislop_lines[] = "- [{$sig['severity']}] {$sig['signal']}: {$sig['detail']}";
+        }
+        $aislop_text = $aislop_lines
+            ? implode( "\n", $aislop_lines )
+            : 'PHP-сигналов AI Slop не обнаружено';
+ 
+        $aislop_section  = "\n\nAI SLOP DETECTION (PHP-сигналы, risk={$aislop_risk}):\n";
+        $aislop_section .= $aislop_text . "\n";
+        $aislop_section .= "Используй эти сигналы для заполнения поля aislop_summary в JSON.\n";
+ 
         return <<<MSG
 ## Данные канала для аудита
  
@@ -415,12 +443,15 @@ block1_fail = {$b1fail}
 ---
 {$niche_section}
 ---
+{$aislop_section}
+---
  
 Проведи аудит Блока 2 (риски демонетизации) и Блока 3 (авторские права).
 Верни JSON строго по схеме из system message. Учти block1_fail при формировании verdict.
 ВАЖНО: поле tag в recommendations_for_user — строго по-русски: «Критично», «Важно», «Рекомендуется».
 ВАЖНО: используй КОНКРЕТНЫЕ ФАКТЫ из секции выше дословно в тексте рекомендаций.
 ВАЖНО: обязательно заполни блок niche_analysis на основе раздела «ДАННЫЕ ДЛЯ АНАЛИЗА НИШИ».
+ВАЖНО: обязательно заполни блок aislop_summary на основе раздела «AI SLOP DETECTION».
 MSG;
     }
  
@@ -544,6 +575,9 @@ MSG;
  
         // v5.0: niche_analysis — дефолт null если AI не вернул
         $data['niche_analysis'] = $data['niche_analysis'] ?? null;
+ 
+        // v5.1: aislop_summary — дефолт null если AI не вернул
+        $data['aislop_summary'] = $data['aislop_summary'] ?? null;
  
         if ( ! is_array( $data['checklist_moderator'] ) ) {
             $data['checklist_moderator'] = [];

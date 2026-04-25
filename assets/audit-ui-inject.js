@@ -280,6 +280,28 @@
       '.pw-donate-result{margin-top:8px;font-size:13px;padding:6px 12px;border-radius:6px}',
       '.pw-donate-result.success{background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0}',
       '.pw-donate-result.error{background:#fef2f2;color:#dc2626;border:1px solid #fecaca}',
+      /* Sprint v5.0: Niche tab */
+      '.pw-niche-wrap{display:flex;flex-direction:column;gap:16px}',
+      '.pw-niche-position{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px 16px}',
+      '.pw-niche-pos-title{font-size:12px;font-weight:600;color:#15803d;margin-bottom:6px}',
+      '.pw-niche-pos-text{font-size:13px;color:#166534;line-height:1.6}',
+      '.pw-niche-section-label{font-size:11px;font-weight:600;color:#bbb;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px}',
+      '.pw-benchmarks-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}',
+      '.pw-bench-card{background:#f9fafb;border:1px solid #f0f0f0;border-radius:8px;padding:12px 14px}',
+      '.pw-bench-label{font-size:10px;color:#bbb;font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}',
+      '.pw-bench-niche{font-size:17px;font-weight:600;color:#1a1a1a;line-height:1}',
+      '.pw-bench-your{font-size:12px;margin-top:5px;font-weight:500}',
+      '.pw-bench-your.good{color:#16a34a}',
+      '.pw-bench-your.warn{color:#dc2626}',
+      '.pw-bench-your.ok{color:#d97706}',
+      '.pw-trends-list{display:flex;flex-direction:column;gap:8px}',
+      '.pw-trend-item{display:flex;align-items:flex-start;gap:10px;padding:10px 13px;background:#f9fafb;border-radius:8px;border:1px solid #f0f0f0}',
+      '.pw-trend-num{width:24px;height:24px;border-radius:6px;background:#E8192C;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px;color:#fff;font-weight:700}',
+      '.pw-trend-text{font-size:13px;color:#1a1a1a;font-weight:500;padding-top:2px}',
+      '.pw-format-list{display:flex;flex-direction:column;gap:7px}',
+      '.pw-format-item{font-size:12px;color:#555;padding:8px 12px;background:#f9fafb;border-radius:7px;border-left:3px solid #E8192C;line-height:1.55}',
+      '.pw-niche-growth{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px 14px;font-size:12px;color:#92400e;line-height:1.6}',
+      '.pw-niche-na{font-size:13px;color:#aaa;padding:16px 0;font-style:italic}',
     ].join('');
     document.head.appendChild(style);
   }
@@ -1079,6 +1101,108 @@
   }
  
   // —— Полный отчёт (оплачен) ———————————————————————————————————————————————————————————————
+ 
+  // —— Sprint v5.0: Вкладка «Ниша» ——————————————————————————————————————————————————————————
+  function buildNicheTab(full) {
+    var na = full && full.niche_analysis;
+    var cm = (full && full.channel_metrics) || {};
+ 
+    if (!na) {
+      var stub = h('p', { class: 'pw-niche-na' },
+        'Анализ ниши доступен для новых аудитов. Пересоздайте аудит чтобы получить этот раздел.');
+      return stub;
+    }
+ 
+    var wrap = h('div', { class: 'pw-niche-wrap' });
+ 
+    // Блок А: Позиция в нише
+    var posBox = h('div', { class: 'pw-niche-position' });
+    posBox.appendChild(h('div', { class: 'pw-niche-pos-title' },
+      '📊 Позиция в нише: ' + (na.niche_name || 'Не определена')));
+    posBox.appendChild(h('div', { class: 'pw-niche-pos-text' },
+      na.channel_position || ''));
+    wrap.appendChild(posBox);
+ 
+    // Блок Б: Бенчмарки (3 карточки: ER / Частота / Длина)
+    var bSection = h('div');
+    bSection.appendChild(h('div', { class: 'pw-niche-section-label' }, 'Бенчмарки ниши'));
+    var grid = h('div', { class: 'pw-benchmarks-grid' });
+ 
+    // Карточка ER
+    var er = parseFloat(cm.avg_er || 0);
+    var erNiche = parseFloat(na.niche_er_median || 2);
+    var erCls = er >= erNiche ? 'good' : er >= erNiche * 0.7 ? 'ok' : 'warn';
+    var erCard = h('div', { class: 'pw-bench-card' });
+    erCard.appendChild(h('div', { class: 'pw-bench-label' }, 'ER в нише (медиана)'));
+    erCard.appendChild(h('div', { class: 'pw-bench-niche' }, erNiche.toFixed(1) + '%'));
+    erCard.appendChild(h('div', { class: 'pw-bench-your ' + erCls }, 'Ваш: ' + er.toFixed(2) + '%'));
+    grid.appendChild(erCard);
+ 
+    // Карточка частоты
+    var freq = parseFloat(cm.videos_per_month || 0);
+    var freqNiche = parseFloat(na.niche_freq_median || 4);
+    var freqCls = freq >= freqNiche ? 'good' : freq >= freqNiche * 0.5 ? 'ok' : 'warn';
+    var freqCard = h('div', { class: 'pw-bench-card' });
+    freqCard.appendChild(h('div', { class: 'pw-bench-label' }, 'Частота (медиана)'));
+    freqCard.appendChild(h('div', { class: 'pw-bench-niche' }, freqNiche.toFixed(1) + '/мес'));
+    freqCard.appendChild(h('div', { class: 'pw-bench-your ' + freqCls }, 'Ваша: ' + freq.toFixed(1) + '/мес'));
+    grid.appendChild(freqCard);
+ 
+    // Карточка длины видео
+    var videosList = Array.isArray(cm.videos_list) ? cm.videos_list : [];
+    var avgDurMin = videosList.length
+      ? Math.round(videosList.reduce(function(s, v) { return s + (v.duration_sec || 0); }, 0)
+          / videosList.length / 60 * 10) / 10
+      : 0;
+    var durNiche = parseFloat(na.niche_duration_median || 10);
+    var durDiff = Math.abs(avgDurMin - durNiche);
+    var durCls = durDiff < durNiche * 0.4 ? 'good' : durDiff < durNiche * 0.7 ? 'ok' : 'warn';
+    var durCard = h('div', { class: 'pw-bench-card' });
+    durCard.appendChild(h('div', { class: 'pw-bench-label' }, 'Длина видео (медиана)'));
+    durCard.appendChild(h('div', { class: 'pw-bench-niche' }, durNiche + ' мин'));
+    durCard.appendChild(h('div', { class: 'pw-bench-your ' + durCls }, 'Ваша: ' + avgDurMin + ' мин'));
+    grid.appendChild(durCard);
+ 
+    bSection.appendChild(grid);
+    wrap.appendChild(bSection);
+ 
+    // Блок В: Актуальные тренды
+    if (na.niche_trends && na.niche_trends.length) {
+      var tSection = h('div');
+      tSection.appendChild(h('div', { class: 'pw-niche-section-label' }, 'Актуальные тренды ниши'));
+      var tList = h('div', { class: 'pw-trends-list' });
+      na.niche_trends.forEach(function(trend, i) {
+        var item = h('div', { class: 'pw-trend-item' });
+        item.appendChild(h('div', { class: 'pw-trend-num' }, String(i + 1)));
+        item.appendChild(h('div', { class: 'pw-trend-text' }, trend));
+        tList.appendChild(item);
+      });
+      tSection.appendChild(tList);
+      wrap.appendChild(tSection);
+    }
+ 
+    // Блок Г: Форматы для роста
+    if (na.format_recommendations && na.format_recommendations.length) {
+      var fSection = h('div');
+      fSection.appendChild(h('div', { class: 'pw-niche-section-label' }, 'Форматы для роста в нише'));
+      var fList = h('div', { class: 'pw-format-list' });
+      na.format_recommendations.forEach(function(fmt) {
+        fList.appendChild(h('div', { class: 'pw-format-item' }, fmt));
+      });
+      fSection.appendChild(fList);
+      wrap.appendChild(fSection);
+    }
+ 
+    // Блок Д: Потенциал роста
+    if (na.growth_potential) {
+      var gBox = h('div', { class: 'pw-niche-growth' });
+      gBox.innerHTML = '<strong>Потенциал роста:</strong> ' + na.growth_potential;
+      wrap.appendChild(gBox);
+    }
+ 
+    return wrap;
+  }
+ 
   function buildFullReport(report, full) {
     var wrap = h('div', { class: 'pw-card' });
  
@@ -1122,6 +1246,7 @@
       { label: 'Блок 2 · Демонетизация', risk: b2Risk, panelTitle: 'Риски демонетизации',        type: 'signals2',  data: b2Sigs   },
       { label: 'Блок 3 · Страйки',       risk: b3Risk, panelTitle: 'Риски авторских прав',       type: 'signals3',  data: b3Sigs   },
       { label: 'Метрики видео',           risk: null,   panelTitle: 'Метрики видео канала',       type: 'videos',    data: full     },
+      { label: 'Ниша',                    risk: null,   panelTitle: 'Анализ ниши и трендов',       type: 'niche',     data: full     },
     ];
  
     // —— Tab row ——
@@ -1260,6 +1385,10 @@
         // Sprint 4: таблица видео
         var videoContent = buildVideoTable(full);
         if (videoContent) panel.appendChild(videoContent);
+      } else if (td.type === 'niche') {
+        // Sprint v5.0: вкладка «Ниша»
+        var nicheContent = buildNicheTab(full);
+        if (nicheContent) panel.appendChild(nicheContent);
       }
  
       panels.push(panel);

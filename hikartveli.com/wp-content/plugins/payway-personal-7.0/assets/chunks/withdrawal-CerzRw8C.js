@@ -1,1 +1,0 @@
-import{a}from"../index.js";function e(r={}){return a.get("/withdrawal",{params:{page:1,per_page:10,order_by:"time",order:"DESC",...r}})}function i(r){return a.post("/withdrawal",r)}export{i as c,e as g};

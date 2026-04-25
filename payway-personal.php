@@ -8,11 +8,11 @@ Author:      Rus, Alex Kovalev
 Author URI:  null
 License:     GPL2
 */
-
+ 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
-
+ 
 define( 'PAYWAY_PLUGIN_VERSION',  '8.0' );
 define( 'PAYWAY_PLUGIN_FILE',     __FILE__ );
 define( 'PAYWAY_ABSPATH',         dirname( __FILE__ ) );
@@ -20,25 +20,25 @@ define( 'PAYWAY_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
 define( 'PAYWAY_PLUGIN_SLUG',     dirname( plugin_basename( __FILE__ ) ) );
 define( 'PAYWAY_PLUGIN_URL',      plugins_url( '', __FILE__ ) );
 define( 'PAYWAY_PLUGIN_DIR',      dirname( __FILE__ ) );
-
+ 
 // ── Core ──────────────────────────────────────────────────────────────────────
 require_once PAYWAY_PLUGIN_DIR . '/functions.php';
 require_once PAYWAY_PLUGIN_DIR . '/activation.php';
-
+ 
 // ── Assets ────────────────────────────────────────────────────────────────────
 require_once PAYWAY_PLUGIN_DIR . '/includes/class-assets-manager.php';
-
+ 
 // ── Ajax ──────────────────────────────────────────────────────────────────────
 require_once PAYWAY_PLUGIN_DIR . '/admin/ajax-handlers.php';
 require_once PAYWAY_PLUGIN_DIR . '/includes/ajax-handlers/profile.php';
 require_once PAYWAY_PLUGIN_DIR . '/includes/ajax-handlers/projects.php';
 require_once PAYWAY_PLUGIN_DIR . '/includes/ajax-handlers/unlock.php';
 require_once PAYWAY_PLUGIN_DIR . '/includes/ajax-handlers/withdrawal.php';
-
+ 
 // ── REST API ──────────────────────────────────────────────────────────────────
 require_once PAYWAY_PLUGIN_DIR . '/includes/class-rest-api.php';
 require_once PAYWAY_PLUGIN_DIR . '/includes/controllers/class-referral-controller.php';
-
+ 
 // ── Channel Audit: Sprint 1 (DB + PHP classes) ────────────────────────────────
 require_once PAYWAY_PLUGIN_DIR . '/includes/class-audit-db.php';
 require_once PAYWAY_PLUGIN_DIR . '/includes/class-audit-rate-limiter.php';
@@ -53,7 +53,7 @@ require_once PAYWAY_PLUGIN_DIR . '/includes/class-audit-cron.php';
 // ── JWT Authentication (встроенная, замена внешнего плагина) ──────────────────
 require_once PAYWAY_PLUGIN_DIR . '/includes/class-jwt-auth.php';
 PW_JWT_Auth::init();
-
+ 
 add_action( 'rest_api_init', function () { $c = new PW_Audit_REST(); $c->register_routes(); } );
 PW_Audit_Cron::register_hooks();
 // ── v4.9: Создание таблицы donations для существующих установок ──────────────
@@ -81,11 +81,11 @@ if ( is_admin() ) {
 	require_once PAYWAY_PLUGIN_DIR . '/admin/pages/class-audit-admin.php';
 	Payway\Pages\AuditAdminPage::init();
 }
-
-
+ 
+ 
 // ── Admin bar ─────────────────────────────────────────────────────────────────
 add_filter( 'show_admin_bar', fn( $show ) => current_user_can( 'administrator' ) );
-
+ 
 // ── Admin pages ───────────────────────────────────────────────────────────────
 // ── Admin parent menu (priority 9 — fires before submenu registrations) ────────
 add_action( 'admin_menu', function () {
@@ -102,8 +102,8 @@ add_action( 'admin_menu', function () {
 add_action( 'admin_menu', function () {
 	remove_submenu_page( 'payway-cabinet', 'payway-cabinet' );
 }, 11 );
-
-
+ 
+ 
 add_action( 'admin_menu', function () {
 	require_once PAYWAY_PLUGIN_DIR . '/admin/pages/class-admin-pages.php';
 	require_once PAYWAY_PLUGIN_DIR . '/admin/pages/class-projects-page.php';
@@ -121,7 +121,7 @@ add_action( 'admin_menu', function () {
 	Payway\Pages\StatsPage::init();
 	Payway\Pages\ReferralPage::init();
 } );
-
+ 
 // ── Template routing ──────────────────────────────────────────────────────────
 add_filter( 'template_include', function ( $template ) {
 	$template_map = [
@@ -134,9 +134,9 @@ add_filter( 'template_include', function ( $template ) {
 		'create-withdrawal' => 'account.php',
             'audit'             => 'account.php',
 	];
-
+ 
 	$dir = plugin_dir_path( __FILE__ ) . '/pages/';
-
+ 
 	foreach ( $template_map as $page => $file ) {
 		if ( is_page( $page ) ) {
 			$path = $dir . $file;
@@ -145,10 +145,10 @@ add_filter( 'template_include', function ( $template ) {
 			}
 		}
 	}
-
+ 
 	return $template;
 } );
-
+ 
 // ── Early cookie auth для обычных страниц (nonce создаётся для правильного юзера) ──
 // Только для НЕ-REST запросов. Для REST — хук determine_current_user ниже.
 add_action( 'init', function () {
@@ -162,24 +162,21 @@ add_action( 'init', function () {
         }
     }
 }, 1 );
-
+ 
 // ── Cookie auth для REST API через determine_current_user ─────────────────────
-// Хукаемся в determine_current_user (priority 20, после WP-дефолта 10).
-// Это заставляет auth_cookie_valid сработать → $wp_rest_auth_cookie = true →
-// rest_cookie_check_errors пропускает запрос без ошибки 403.
 add_filter( 'determine_current_user', function ( $user_id ) {
-    if ( $user_id ) return $user_id; // уже определён WordPress
+    if ( $user_id ) return $user_id;
     $uri = $_SERVER['REQUEST_URI'] ?? '';
-    if ( strpos( $uri, '/payway/v1/' ) === false ) return $user_id; // только наши endpoints
+    if ( strpos( $uri, '/payway/v1/' ) === false ) return $user_id;
     foreach ( $_COOKIE as $name => $val ) {
         if ( strpos( $name, 'wordpress_logged_in_' ) === 0 ) {
-            $uid = wp_validate_auth_cookie( $val, 'logged_in' ); // fires auth_cookie_valid
+            $uid = wp_validate_auth_cookie( $val, 'logged_in' );
             if ( $uid ) return $uid;
         }
     }
     return $user_id;
 }, 20 );
-
+ 
 // ── Auth redirect ─────────────────────────────────────────────────────────────
 add_action( 'template_redirect', function () {
 	if ( is_page( 'account' ) ) {
@@ -194,10 +191,8 @@ add_action( 'template_redirect', function () {
 	}
 } );
 // ── Запасной фильтр: сбрасываем ошибки аутентификации для наших endpoints ─────
-// Приоритет 200 — после всех плагинов. Если юзер установлен — снимаем любую ошибку.
 add_filter( 'rest_authentication_errors', function ( $result ) {
     if ( strpos( $_SERVER['REQUEST_URI'] ?? '', '/payway/v1/' ) === false ) return $result;
-    // Попытка аутентификации через X-Payway-Token (работает даже если куки стриплены сервером)
     if ( ! get_current_user_id() ) {
         $token = $_SERVER['HTTP_X_PAYWAY_TOKEN'] ?? '';
         if ( $token ) {
@@ -207,18 +202,18 @@ add_filter( 'rest_authentication_errors', function ( $result ) {
             }
         }
     }
-    if ( get_current_user_id() ) return null; // юзер аутентифицирован — снимаем любую ошибку
+    if ( get_current_user_id() ) return null;
     return $result;
 }, 200 );
-
-
+ 
+ 
 add_action( 'wp_ajax_payway_fresh_nonce', function () {
     wp_send_json_success( [
         'nonce'    => wp_create_nonce( 'wp_rest' ),
         'is_admin' => current_user_can( 'manage_options' ),
     ] );
 } );
-
+ 
 add_action( 'send_headers', function () {
     $uri = $_SERVER['REQUEST_URI'] ?? '';
     if ( strpos( $uri, '/audit' ) !== false || strpos( $uri, '/account' ) !== false ) {
@@ -228,13 +223,20 @@ add_action( 'send_headers', function () {
 } );
   
 // ── Audit UI v2: CSS + JS ──────────────────────────────────────
-
+ 
+// Helper: все SPA-страницы (audit-inject.js должен быть загружен на всех них,
+// чтобы работал при SPA-навигации от /account → /audit и т.д.)
+function payway_is_spa_page() {
+    $uri = $_SERVER['REQUEST_URI'] ?? '';
+    return (bool) preg_match( '#/(audit|account|profile|projects|unlock|stats|create-withdrawal|login)(\?|/|$)#', $uri );
+}
+ 
 // -- Audit nonce + authToken injection via wp_head -------------------------
 add_action( 'wp_head', function () {
-    if ( strpos( $_SERVER['REQUEST_URI'] ?? '', '/audit' ) === false ) return;
+    // Загружаем на всех SPA-страницах — скрипт нужен при навигации /account → /audit
+    if ( ! payway_is_spa_page() ) return;
     $nonce    = wp_create_nonce( 'wp_rest' );
     $is_admin = current_user_can( 'manage_options' ) ? 'true' : 'false';
-    // Генерируем authToken — работает даже если сервер стрипает куки для /wp-json/
     $auth_token_js = 'null';
     $uid = get_current_user_id();
     if ( $uid ) {
@@ -252,9 +254,10 @@ echo '<script>window.paywayAuditCfg={nonce:"' . esc_js( $nonce ) . '",is_admin:'
          'h["X-Payway-Token"]=(window.paywayAuditCfg&&window.paywayAuditCfg.authToken)||"";' .
          'o.headers=h;}return oF.call(this,u,o);}})());</script>';
 } );
-
+ 
 add_action( 'wp_enqueue_scripts', function () {
-    if ( strpos( $_SERVER['REQUEST_URI'] ?? '', '/audit' ) === false ) {
+    // Загружаем на всех SPA-страницах
+    if ( ! payway_is_spa_page() ) {
         return;
     }
     wp_enqueue_style(
@@ -268,14 +271,13 @@ add_action( 'wp_enqueue_scripts', function () {
         [], '2.0', true
     );
     wp_localize_script( 'payway-audit-ui', 'paywayAuditCfg', [ 'nonce' => wp_create_nonce( 'wp_rest' ), 'is_admin' => current_user_can( 'manage_options' ) ] );
-    // fetch_interceptor: auto-inject WP REST nonce into payway API calls
     wp_add_inline_script(
         'payway-audit-ui',
         'window.__paywayFetchPatched||(window.__paywayFetchPatched=1,(function(){var oF=window.fetch;window.fetch=function(u,o){if(typeof u==="string"&&u.indexOf("/payway/v1/")>-1){o=Object.assign({},o||{});var h=o.headers||{};if(h instanceof Headers){h=Object.fromEntries(h.entries());}h["X-WP-Nonce"]=(window.paywayAuditCfg&&window.paywayAuditCfg.nonce)||"";o.headers=h;}return oF.call(this,u,o);}})());',
         'before'
     );
 });
-
+ 
 // ── Audit history loader v2 (footer injection) ─────────────────
 function payway_inject_audit_history_loader_v2() {
     if ( strpos( $_SERVER['REQUEST_URI'] ?? '', '/audit' ) === false ) return;
@@ -306,19 +308,19 @@ function payway_inject_audit_history_loader_v2() {
     </script>
     <?php
 }
-
-// -- Audit UI v3: direct script src inject (bypasses wp_enqueue handle) --
+ 
+// -- Audit UI v3: direct script src inject (на всех SPA-страницах) --
 add_action( 'wp_footer', function () {
-    if ( strpos( $_SERVER['REQUEST_URI'] ?? '', '/audit' ) === false ) return;
-    $url = plugin_dir_url( __FILE__ ) . 'assets/audit-ui-inject.js?ver=9.0';
+    // Загружаем на всех SPA-страницах — без этого скрипт не работает при SPA-навигации
+    if ( ! payway_is_spa_page() ) return;
+    $url = plugin_dir_url( __FILE__ ) . 'assets/audit-ui-inject.js?ver=9.1';
     echo '<script src="' . esc_url( $url ) . '"></script>' . "\n";
 }, 5 );
-
+ 
 add_action( 'wp_footer', 'payway_inject_audit_history_loader_v2' );
 add_action( 'wp_footer', function () {
     if ( strpos( $_SERVER['REQUEST_URI'] ?? '', '/create-withdrawal' ) === false ) return;
  
-    // Тариф: регистрация ДО 07.04.2026 → 10%, с 07.04.2026 → 11%
     $tariff = 11;
     if ( is_user_logged_in() ) {
         $user = get_userdata( get_current_user_id() );

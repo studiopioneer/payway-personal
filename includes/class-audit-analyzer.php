@@ -2,26 +2,15 @@
 /**
  * PW_Audit_Analyzer — вычисление PHP-метрик и reused-сигналов
  * Строго по ТЗ §5
+ * Sprint v5.1: добавлен eval_aislop_signals() — 8 сигналов AI Slop
  */
 class PW_Audit_Analyzer {
  
-    /**
-     * Главный метод: вычисляет всё на основе данных YouTube API.
-     *
-     * @param array $yt_data  ['channel' => [...], 'videos' => [...]]
-     * @return array {
-     *   age_months, videos_per_month, avg_er,
-     *   block1_criteria, block1_status,
-     *   php_signals,
-     *   channel_metrics
-     * }
-     */
     public function analyze( array $yt_data ) {
         $channel = $yt_data['channel'];
         $videos  = $yt_data['videos'];
  
-        // --- Базовые метрики ---
-        $age_months      = $this->calc_age_months( $channel['snippet']['publishedAt'] ?? '' );
+        $age_months       = $this->calc_age_months( $channel['snippet']['publishedAt'] ?? '' );
         $subscriber_count = (int) ( $channel['statistics']['subscriberCount'] ?? 0 );
         $video_count      = (int) ( $channel['statistics']['videoCount'] ?? 0 );
         $view_count       = (int) ( $channel['statistics']['viewCount'] ?? 0 );
@@ -30,7 +19,6 @@ class PW_Audit_Analyzer {
         $avg_er           = $this->calc_avg_er( $videos );
         $has_reg_gap      = $this->has_regularity_gap( $videos, 60 );
  
-        // --- Блок 1: PHP-критерии допуска (§5.1) ---
         $block1 = $this->eval_block1([
             'age_months'        => $age_months,
             'videos_per_month'  => $videos_per_month,
@@ -43,34 +31,41 @@ class PW_Audit_Analyzer {
             'topic_categories'  => $channel['topicDetails']['topicCategories'] ?? [],
         ]);
  
-        // --- Блок 2: PHP-сигналы reused / mass-produced (§5.2.1) ---
         $php_signals = $this->eval_reused_signals( $videos, $videos_per_month, $avg_er, $subscriber_count, $channel );
- 
-        // --- Sprint 1: список видео с метриками ---
         $videos_list = $this->prepare_videos_list( $videos, $php_signals );
+ 
+        // Sprint v5.1: AI Slop signals
+        $aislop = $this->eval_aislop_signals( $yt_data, [
+            'videos'           => $videos,
+            'channel'          => $channel,
+            'videos_per_month' => $videos_per_month,
+            'avg_er'           => $avg_er,
+            'subscriber_count' => $subscriber_count,
+        ] );
  
         return [
             'age_months'       => $age_months,
             'videos_per_month' => $videos_per_month,
             'avg_er'           => $avg_er,
             'block1_criteria'  => $block1['criteria'],
-            'block1_status'    => $block1['status'],   // 'ok' | 'warn' | 'fail'
+            'block1_status'    => $block1['status'],
             'php_signals'      => $php_signals,
+            'aislop_signals'   => $aislop['signals'],
+            'aislop_risk'      => $aislop['risk'],
             'channel_metrics'  => [
-                'subscriber_count'  => $subscriber_count,
-                'view_count'        => $view_count,
-                'video_count'       => $video_count,
-                'age_months'        => $age_months,
-                'videos_per_month'  => $videos_per_month,
-                'avg_er'            => $avg_er,
-                'madeForKids'       => $channel['status']['madeForKids'] ?? false,
-                'longUploadsStatus' => $channel['status']['longUploadsStatus'] ?? '',
-                'topicCategories'   => $channel['topicDetails']['topicCategories'] ?? [],
-                'country'           => $channel['snippet']['country'] ?? '',
-                'customUrl'         => $channel['snippet']['customUrl'] ?? '',
-                'title'             => $channel['snippet']['title'] ?? '',
-                'publishedAt'       => $channel['snippet']['publishedAt'] ?? '',
-                // Sprint 1: новые поля для карточки канала и отчёта
+                'subscriber_count'   => $subscriber_count,
+                'view_count'         => $view_count,
+                'video_count'        => $video_count,
+                'age_months'         => $age_months,
+                'videos_per_month'   => $videos_per_month,
+                'avg_er'             => $avg_er,
+                'madeForKids'        => $channel['status']['madeForKids'] ?? false,
+                'longUploadsStatus'  => $channel['status']['longUploadsStatus'] ?? '',
+                'topicCategories'    => $channel['topicDetails']['topicCategories'] ?? [],
+                'country'            => $channel['snippet']['country'] ?? '',
+                'customUrl'          => $channel['snippet']['customUrl'] ?? '',
+                'title'              => $channel['snippet']['title'] ?? '',
+                'publishedAt'        => $channel['snippet']['publishedAt'] ?? '',
                 'channel_title'      => $channel['snippet']['title'] ?? '',
                 'channel_handle'     => $channel['snippet']['customUrl'] ?? '',
                 'channel_thumb'      => $channel['snippet']['thumbnails']['default']['url'] ?? '',
@@ -85,6 +80,174 @@ class PW_Audit_Analyzer {
     }
  
     // ─────────────────────────────────────────────────────────
+    // Sprint v5.1: AI Slop — 8 сигналов
+    // ─────────────────────────────────────────────────────────
+ 
+    public function eval_aislop_signals( array $yt_data, array $ctx ): array {
+        $videos  = $ctx['videos']  ?? $yt_data['videos']  ?? [];
+        $channel = $ctx['channel'] ?? $yt_data['channel'] ?? [];
+        $signals = [];
+ 
+        if ( empty( $videos ) ) {
+            return [ 'signals' => [], 'risk' => 'low', 'total' => 0 ];
+        }
+ 
+        // Сигнал 1: Одинаковая длина видео (HIGH)
+        $dur = $this->check_uniform_duration( $videos );
+        if ( $dur['ratio'] >= 0.6 ) {
+            $signals[] = [
+                'id'     => 'uniform_duration',
+                'level'  => 'high',
+                'title'  => 'Все видео одинаковой длины',
+                'detail' => round( $dur['ratio'] * 100 ) . '% видео имеют длину ' . gmdate( 'i:s', $dur['median'] ) . ' (±30 сек)',
+                'advice' => 'Снимайте видео разной длины — от коротких (3-5 мин) до длинных (20+ мин). Длина должна диктоваться темой, а не шаблоном.',
+            ];
+        }
+ 
+        // Сигнал 2: Шаблонные заголовки (HIGH)
+        $tmpl_count = $this->count_template_titles( $videos );
+        $tmpl_ratio = count( $videos ) > 0 ? $tmpl_count / count( $videos ) : 0;
+        if ( $tmpl_ratio >= 0.4 ) {
+            $signals[] = [
+                'id'     => 'template_titles',
+                'level'  => 'high',
+                'title'  => 'Шаблонные заголовки видео',
+                'detail' => round( $tmpl_ratio * 100 ) . '% видео используют шаблонные паттерны (ТОП-N, Как..., Подборка и т.д.)',
+                'advice' => 'Заголовки должны отражать уникальный угол подачи конкретного видео, а не шаблон. Избегайте списков и формул.',
+            ];
+        }
+ 
+        // Сигнал 3: Reused-ключевые слова (HIGH)
+        $kw = $this->check_reused_keywords( $videos );
+        if ( $kw ) {
+            $signals[] = [
+                'id'     => 'reused_keywords',
+                'level'  => 'high',
+                'title'  => 'Ключевые слова reused-контента',
+                'detail' => $kw['detail'],
+                'advice' => 'Уберите эти теги из видео. Они прямо указывают алгоритму YouTube на компилятивный контент.',
+            ];
+        }
+ 
+        // Сигнал 4: Аномально низкий comment ratio (HIGH)
+        $comment_ratios = [];
+        foreach ( $videos as $v ) {
+            $views    = (int) ( $v['viewCount'] ?? 0 );
+            $comments = (int) ( $v['commentCount'] ?? 0 );
+            if ( $views >= 10000 ) {
+                $comment_ratios[] = $views > 0 ? $comments / $views : 0;
+            }
+        }
+        if ( count( $comment_ratios ) >= 3 ) {
+            $avg_cr = array_sum( $comment_ratios ) / count( $comment_ratios );
+            if ( $avg_cr < 0.002 ) {
+                $pct       = round( $avg_cr * 100, 3 );
+                $signals[] = [
+                    'id'     => 'low_comment_ratio',
+                    'level'  => 'high',
+                    'title'  => 'Аномально низкая активность в комментариях',
+                    'detail' => "Среднее соотношение комментариев к просмотрам: {$pct}% (норма > 0.2%). AI slop каналы имеют пассивную аудиторию.",
+                    'advice' => 'Задавайте вопросы аудитории в конце видео. Отвечайте на каждый комментарий в первые 48 часов. YouTube учитывает comment engagement как сигнал подлинности контента.',
+                ];
+            }
+        }
+ 
+        // Сигнал 5: Высокая upload velocity (MEDIUM)
+        $cutoff_30  = strtotime( '-30 days' );
+        $recent_30  = array_filter( $videos, function ( $v ) use ( $cutoff_30 ) {
+            return strtotime( $v['publishedAt'] ?? '' ) >= $cutoff_30;
+        } );
+        $velocity = count( $recent_30 );
+        if ( $velocity >= 15 ) {
+            $signals[] = [
+                'id'     => 'high_velocity',
+                'level'  => 'medium',
+                'title'  => 'Высокая скорость публикаций',
+                'detail' => "{$velocity} видео за последние 30 дней. YouTube считает >15 видео/мес признаком автоматизированного производства.",
+                'advice' => 'Снизьте частоту публикаций, но повысьте качество каждого видео. Алгоритм YouTube предпочитает каналы с вовлечённой аудиторией, а не высоким объёмом.',
+            ];
+        }
+ 
+        // Сигнал 6: Нет AI disclosure (MEDIUM) — только если уже есть high-сигналы
+        $ai_markers = [ '#ai', '#ии', 'ai-generated', 'ai generated', 'сгенерирован',
+            'создан ии', 'нейросеть', 'нейросети', 'artificial intelligence',
+            'midjourney', 'elevenlabs', 'heygen', 'sora', 'veo' ];
+        $has_ai_in_titles = false;
+        $has_ai_in_desc   = false;
+        foreach ( $videos as $v ) {
+            $title_lower = mb_strtolower( $v['title'] ?? '' );
+            $desc_lower  = mb_strtolower( $v['description'] ?? '' );
+            foreach ( $ai_markers as $marker ) {
+                if ( strpos( $title_lower, $marker ) !== false ) { $has_ai_in_titles = true; break; }
+                if ( strpos( $desc_lower,  $marker ) !== false ) { $has_ai_in_desc   = true; break; }
+            }
+            if ( $has_ai_in_titles && $has_ai_in_desc ) break;
+        }
+        $high_signals_so_far = count( array_filter( $signals, fn( $s ) => $s['level'] === 'high' ) );
+        if ( $high_signals_so_far >= 1 && ! $has_ai_in_titles && ! $has_ai_in_desc ) {
+            $signals[] = [
+                'id'     => 'no_ai_disclosure',
+                'level'  => 'medium',
+                'title'  => 'Нет маркировки AI-контента',
+                'detail' => 'С июля 2025 YouTube требует обязательного раскрытия использования AI при создании «реалистичного» контента. Маркировка не найдена.',
+                'advice' => 'Если вы используете AI-инструменты (голос, видеоряд, сценарий), добавьте #AI или явное упоминание в описание. Это снижает риск нарушения политики YouTube.',
+            ];
+        }
+ 
+        // Сигнал 7: Шаблонность описаний (MEDIUM)
+        $desc_lengths = [];
+        foreach ( $videos as $v ) {
+            $desc = $v['description'] ?? '';
+            if ( mb_strlen( $desc ) > 0 ) {
+                $desc_lengths[] = mb_strlen( $desc );
+            }
+        }
+        if ( count( $desc_lengths ) >= 5 ) {
+            $mean     = array_sum( $desc_lengths ) / count( $desc_lengths );
+            $variance = array_sum( array_map( fn( $l ) => pow( $l - $mean, 2 ), $desc_lengths ) ) / count( $desc_lengths );
+            $std_dev  = sqrt( $variance );
+            if ( $std_dev < 50 && $mean > 0 ) {
+                $signals[] = [
+                    'id'     => 'uniform_descriptions',
+                    'level'  => 'medium',
+                    'title'  => 'Шаблонные описания видео',
+                    'detail' => 'Длина описаний всех видео практически одинакова (σ=' . round( $std_dev ) . ' симв.). Признак автогенерации описаний.',
+                    'advice' => 'Пишите уникальные описания для каждого видео, отражающие его конкретное содержание.',
+                ];
+            }
+        }
+ 
+        // Сигнал 8: AI-нишевой риск (MEDIUM)
+        $HIGH_RISK_NICHES = [ 'News', 'True_Crime', 'Finance', 'Celebrity', 'Entertainment', 'Society', 'Politics', 'Lifestyle' ];
+        $topics_str  = implode( ' ', $channel['topicDetails']['topicCategories'] ?? [] );
+        $niche_hits  = [];
+        foreach ( $HIGH_RISK_NICHES as $niche ) {
+            if ( stripos( $topics_str, $niche ) !== false ) {
+                $niche_hits[] = $niche;
+            }
+        }
+        if ( ! empty( $niche_hits ) ) {
+            $signals[] = [
+                'id'     => 'high_risk_niche',
+                'level'  => 'medium',
+                'title'  => 'Ниша с повышенным вниманием YouTube',
+                'detail' => 'Категория канала (' . implode( ', ', $niche_hits ) . ') входит в топ ниш по количеству удалений AI slop каналов в 2025-2026.',
+                'advice' => 'В вашей нише YouTube применяет строжайшие фильтры. Убедитесь что каждое видео содержит авторский голос, уникальный угол и не дублирует другие источники.',
+            ];
+        }
+ 
+        // Итоговый risk
+        $high_count   = count( array_filter( $signals, fn( $s ) => $s['level'] === 'high' ) );
+        $medium_count = count( array_filter( $signals, fn( $s ) => $s['level'] === 'medium' ) );
+ 
+        if ( $high_count >= 2 )                              $risk = 'high';
+        elseif ( $high_count >= 1 || $medium_count >= 2 )   $risk = 'medium';
+        else                                                 $risk = 'low';
+ 
+        return [ 'signals' => $signals, 'risk' => $risk, 'total' => count( $signals ) ];
+    }
+ 
+    // ─────────────────────────────────────────────────────────
     // БЛОК 1: критерии допуска
     // ─────────────────────────────────────────────────────────
  
@@ -93,7 +256,6 @@ class PW_Audit_Analyzer {
         $has_fail = false;
         $has_warn = false;
  
-        // 1. Возраст ≥ 6 месяцев
         if ( $p['age_months'] >= 6 ) {
             $status = 'ok';
             $detail = "{$p['age_months']} мес.";
@@ -104,7 +266,6 @@ class PW_Audit_Analyzer {
         }
         $criteria[] = [ 'name' => 'Возраст ≥ 6 месяцев', 'status' => $status, 'detail' => $detail ];
  
-        // 2. Регулярность (нет пауз > 60 дней за 3 мес)
         if ( ! $p['has_reg_gap'] ) {
             $criteria[] = [ 'name' => 'Регулярные публикации', 'status' => 'ok', 'detail' => round( $p['videos_per_month'], 1 ) . ' видео/мес' ];
         } else {
@@ -112,7 +273,6 @@ class PW_Audit_Analyzer {
             $criteria[] = [ 'name' => 'Регулярные публикации', 'status' => 'fail', 'detail' => 'Обнаружена пауза > 60 дней' ];
         }
  
-        // 3. Не детский
         if ( ! $p['madeForKids'] ) {
             $criteria[] = [ 'name' => 'Не «Сделано для детей»', 'status' => 'ok', 'detail' => 'madeForKids = false' ];
         } else {
@@ -120,7 +280,6 @@ class PW_Audit_Analyzer {
             $criteria[] = [ 'name' => 'Не «Сделано для детей»', 'status' => 'fail', 'detail' => 'Канал помечен как детский' ];
         }
  
-        // 4. Минимум 5 видео
         if ( $p['video_count'] >= 5 ) {
             $criteria[] = [ 'name' => 'Минимум 5 видео', 'status' => 'ok', 'detail' => "{$p['video_count']} видео" ];
         } else {
@@ -128,7 +287,6 @@ class PW_Audit_Analyzer {
             $criteria[] = [ 'name' => 'Минимум 5 видео', 'status' => 'fail', 'detail' => "Только {$p['video_count']} публичных видео" ];
         }
  
-        // 5. Верификация (longUploadsStatus)
         $lus = strtolower( $p['longUploadsStatus'] );
         if ( $lus === 'allowed' ) {
             $criteria[] = [ 'name' => 'Верификация канала', 'status' => 'ok', 'detail' => 'longUploadsStatus = allowed' ];
@@ -140,7 +298,6 @@ class PW_Audit_Analyzer {
             $criteria[] = [ 'name' => 'Верификация канала', 'status' => 'warn', 'detail' => 'longUploadsStatus = disallowed' ];
         }
  
-        // 6. Скрытые подписчики
         if ( ! $p['hiddenSubscribers'] ) {
             $criteria[] = [ 'name' => 'Открытое число подписчиков', 'status' => 'ok', 'detail' => 'Подписчики публичны' ];
         } else {
@@ -148,20 +305,15 @@ class PW_Audit_Analyzer {
             $criteria[] = [ 'name' => 'Открытое число подписчиков', 'status' => 'warn', 'detail' => 'Подписчики скрыты' ];
         }
  
-        // Итоговый статус блока 1
-        if ( $has_fail ) {
-            $block_status = 'fail';
-        } elseif ( $has_warn ) {
-            $block_status = 'warn';
-        } else {
-            $block_status = 'ok';
-        }
+        if ( $has_fail )      $block_status = 'fail';
+        elseif ( $has_warn )  $block_status = 'warn';
+        else                  $block_status = 'ok';
  
         return [ 'criteria' => $criteria, 'status' => $block_status ];
     }
  
     // ─────────────────────────────────────────────────────────
-    // БЛОК 2: PHP-сигналы reused / mass-produced (§5.2.1)
+    // БЛОК 2: PHP-сигналы reused / mass-produced
     // ─────────────────────────────────────────────────────────
  
     private function eval_reused_signals( array $videos, float $vpm, float $avg_er, int $subs, array $channel ) {
@@ -170,7 +322,6 @@ class PW_Audit_Analyzer {
  
         $total = count( $videos );
  
-        // 1. Шаблонные названия (≥40% видео с одинаковой структурой)
         $pattern_count = $this->count_template_titles( $videos );
         $pattern_ratio = $total > 0 ? $pattern_count / $total : 0;
         if ( $pattern_ratio >= 0.4 ) {
@@ -183,7 +334,6 @@ class PW_Audit_Analyzer {
             ];
         }
  
-        // 2. Одинаковая длительность (≥60% в диапазоне ±30 сек)
         $duration_result = $this->check_uniform_duration( $videos );
         if ( $duration_result['ratio'] >= 0.6 ) {
             $pct       = round( $duration_result['ratio'] * 100 );
@@ -196,7 +346,6 @@ class PW_Audit_Analyzer {
             ];
         }
  
-        // 3. Высокая частота + низкий ER (>20 вид/мес И ER <1% при <100k подписчиков)
         if ( $vpm > 20 && $avg_er < 1.0 && $subs < 100000 ) {
             $signals[] = [
                 'type'   => 'high_freq_low_er',
@@ -206,13 +355,11 @@ class PW_Audit_Analyzer {
             ];
         }
  
-        // 4. Ключевые слова reused в тегах/названиях
         $kw_signal = $this->check_reused_keywords( $videos );
         if ( $kw_signal ) {
             $signals[] = $kw_signal;
         }
  
-        // 5. Новости/дайджесты + высокая частота
         $topics = implode( ' ', $channel['topicDetails']['topicCategories'] ?? [] );
         if ( stripos( $topics, 'News' ) !== false && $vpm > 10 ) {
             $signals[] = [
@@ -223,7 +370,6 @@ class PW_Audit_Analyzer {
             ];
         }
  
-        // 6. Умеренная частота (15–20 без прочих сигналов)
         if ( $vpm >= 15 && $vpm <= 20 && empty( $signals ) ) {
             $signals[] = [
                 'type'   => 'moderate_freq',
@@ -236,14 +382,9 @@ class PW_Audit_Analyzer {
         return $signals;
     }
  
-    /**
-     * Считает видео с шаблонными названиями.
-     * Паттерны: «ТОП-N», «[Что-то] за [время]», «Как [глагол]», повторяющийся префикс/суффикс.
-     */
     private function count_template_titles( array $videos ) {
         $titles = array_column( $videos, 'title' );
  
-        // Паттерны явного шаблона
         $patterns = [
             '/^ТОП[-–\s]?\d+/ui',
             '/^TOP[-–\s]?\d+/ui',
@@ -269,7 +410,6 @@ class PW_Audit_Analyzer {
             }
         }
  
-        // Дополнительно: если >50% названий начинаются с одинакового слова/фразы
         if ( count( $titles ) >= 5 ) {
             $first_words = [];
             foreach ( $titles as $t ) {
@@ -291,9 +431,6 @@ class PW_Audit_Analyzer {
         return min( $count, count( $titles ) );
     }
  
-    /**
-     * Проверяет однородность длительности (±30 сек вокруг медианы).
-     */
     private function check_uniform_duration( array $videos ) {
         $durations = array_column( $videos, 'duration_sec' );
         $durations  = array_filter( $durations, fn( $d ) => $d > 0 );
@@ -309,9 +446,6 @@ class PW_Audit_Analyzer {
         return [ 'ratio' => $ratio, 'median' => $median ];
     }
  
-    /**
-     * Ищет reused-ключевые слова в тегах и названиях (§5.2.1 п.4).
-     */
     private function check_reused_keywords( array $videos ) {
         $keywords = [
             'подборка', 'нарезка', 'compilation', 'реакция', 'reaction',
@@ -349,105 +483,12 @@ class PW_Audit_Analyzer {
     }
  
     // ─────────────────────────────────────────────────────────
-    // Sprint 1: новые методы
+    // prepare_videos_list (Sprint v5.1: добавлен description)
     // ─────────────────────────────────────────────────────────
  
-    /**
-     * Вычисляет дату повторной подачи (publishedAt + 6 месяцев).
-     * Возвращает дату на русском: '15 августа 2026'.
-     *
-     * @param string $published_at ISO-дата публикации канала
-     * @return string
-     */
-    private function calc_retry_date( string $published_at ): string {
-        if ( empty( $published_at ) ) {
-            return '';
-        }
- 
-        try {
-            $date = new DateTimeImmutable( $published_at );
-        } catch ( \Exception $e ) {
-            return '';
-        }
- 
-        $retry = $date->modify( '+6 months' );
- 
-        // Если дата уже в прошлом — канал уже достиг 6 мес.
-        $now = new DateTimeImmutable();
-        if ( $retry <= $now ) {
-            return '';
-        }
- 
-        // Форматирование на русском через IntlDateFormatter (если доступен)
-        if ( class_exists( 'IntlDateFormatter' ) ) {
-            $fmt = new \IntlDateFormatter(
-                'ru_RU',
-                \IntlDateFormatter::LONG,
-                \IntlDateFormatter::NONE,
-                'UTC',
-                \IntlDateFormatter::GREGORIAN,
-                'd MMMM yyyy'
-            );
-            $result = $fmt->format( $retry );
-            if ( $result !== false ) {
-                return $result;
-            }
-        }
- 
-        // Фоллбэк — ручной массив месяцев
-        $months_ru = [
-            'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
-            'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря',
-        ];
-        $day   = (int) $retry->format( 'j' );
-        $month = (int) $retry->format( 'n' );
-        $year  = (int) $retry->format( 'Y' );
- 
-        return $day . ' ' . $months_ru[ $month - 1 ] . ' ' . $year;
-    }
- 
-    /**
-     * Вычисляет сколько месяцев осталось до 6-месячного порога.
-     * Формула: 6.0 − (now − publishedAt в месяцах).
-     * Округляет до 1 знака. Если канал уже достиг 6 мес — возвращает 0.
-     *
-     * @param string $published_at ISO-дата публикации канала
-     * @return float
-     */
-    private function calc_months_left( string $published_at ): float {
-        if ( empty( $published_at ) ) {
-            return 0;
-        }
- 
-        $created = strtotime( $published_at );
-        if ( ! $created ) {
-            return 0;
-        }
- 
-        $age_months = ( time() - $created ) / ( 30.44 * 24 * 3600 );
-        $left = 6.0 - $age_months;
- 
-        if ( $left <= 0 ) {
-            return 0;
-        }
- 
-        return round( $left, 1 );
-    }
- 
-    /**
-     * Подготавливает список видео с метриками для фронтенда.
-     * Берёт до 20 последних видео.
-     *
-     * @param array $videos     Массив видео из YouTube API
-     * @param array $php_signals PHP-сигналы (для определения reused)
-     * @return array
-     */
     private function prepare_videos_list( array $videos, array $php_signals ): array {
-        if ( empty( $videos ) ) {
-            return [];
-        }
+        if ( empty( $videos ) ) return [];
  
-        // Определяем медиану длительности для issues
         $durations = array_filter( array_column( $videos, 'duration_sec' ), fn( $d ) => $d > 0 );
         $median_duration = 0;
         if ( count( $durations ) >= 3 ) {
@@ -456,7 +497,6 @@ class PW_Audit_Analyzer {
             $median_duration = $durations[ $mid ];
         }
  
-        // Проверяем был ли сигнал uniform_duration вообще сработан
         $has_uniform_duration_signal = false;
         foreach ( $php_signals as $s ) {
             if ( ( $s['type'] ?? '' ) === 'uniform_duration' ) {
@@ -465,7 +505,7 @@ class PW_Audit_Analyzer {
             }
         }
  
-        $list = [];
+        $list  = [];
         $slice = array_slice( $videos, 0, 20 );
  
         foreach ( $slice as $v ) {
@@ -477,29 +517,17 @@ class PW_Audit_Analyzer {
             $title         = mb_substr( $title_raw, 0, 80 );
             $published_at  = $v['publishedAt'] ?? $v['snippet']['publishedAt'] ?? '';
  
-            // ER
             $er = $view_count > 0 ? round( ( $like_count / $view_count ) * 100, 2 ) : 0;
- 
-            // Форматирование view_count
             $view_count_fmt = $this->format_number( $view_count );
+            $duration_fmt   = $this->format_duration( $duration_sec );
  
-            // Форматирование длительности
-            $duration_fmt = $this->format_duration( $duration_sec );
- 
-            // Issues
             $issues = [];
- 
-            // 'reused' — если uniform_duration сигнал сработал И это видео в диапазоне ±30 сек от медианы
             if ( $has_uniform_duration_signal && $median_duration > 0 && abs( $duration_sec - $median_duration ) <= 30 ) {
                 $issues[] = 'reused';
             }
- 
-            // 'low_er' — если er < 1.5
             if ( $er < 1.5 && $view_count > 0 ) {
                 $issues[] = 'low_er';
             }
- 
-            // 'duration_match' — если duration_sec в диапазоне ±30 сек от медианы
             if ( $median_duration > 0 && abs( $duration_sec - $median_duration ) <= 30 ) {
                 $issues[] = 'duration_match';
             }
@@ -515,44 +543,30 @@ class PW_Audit_Analyzer {
                 'published_at'   => $published_at,
                 'er'             => $er,
                 'issues'         => $issues,
+                'description'    => mb_substr( $v['description'] ?? '', 0, 500 ),
             ];
         }
  
         return $list;
     }
  
-    /**
-     * Форматирует число: 82400 → '82.4k', 1500000 → '1.5M'
-     */
     private function format_number( int $n ): string {
-        if ( $n >= 1000000 ) {
-            return round( $n / 1000000, 1 ) . 'M';
-        }
-        if ( $n >= 1000 ) {
-            return round( $n / 1000, 1 ) . 'k';
-        }
+        if ( $n >= 1000000 ) return round( $n / 1000000, 1 ) . 'M';
+        if ( $n >= 1000 )    return round( $n / 1000, 1 ) . 'k';
         return (string) $n;
     }
  
-    /**
-     * Форматирует секунды в 'MM:SS' или 'H:MM:SS'
-     */
     private function format_duration( int $sec ): string {
-        if ( $sec <= 0 ) {
-            return '0:00';
-        }
+        if ( $sec <= 0 ) return '0:00';
         $h = (int) floor( $sec / 3600 );
         $m = (int) floor( ( $sec % 3600 ) / 60 );
         $s = $sec % 60;
- 
-        if ( $h > 0 ) {
-            return sprintf( '%d:%02d:%02d', $h, $m, $s );
-        }
+        if ( $h > 0 ) return sprintf( '%d:%02d:%02d', $h, $m, $s );
         return sprintf( '%d:%02d', $m, $s );
     }
  
     // ─────────────────────────────────────────────────────────
-    // Вспомогательные метрики
+    // Вспомогательные метрики (публичные — используются из REST)
     // ─────────────────────────────────────────────────────────
  
     public function calc_age_months( $published_at ) {
@@ -563,25 +577,17 @@ class PW_Audit_Analyzer {
         return max( 0, round( $diff, 1 ) );
     }
  
-    /**
-     * Видео в месяц за последние N месяцев (только публичные видео из $videos).
-     */
     public function calc_videos_per_month( array $videos, int $months = 3 ) {
         if ( empty( $videos ) ) return 0;
         $cutoff = strtotime( "-{$months} months" );
         $count  = 0;
         foreach ( $videos as $v ) {
             $pub = strtotime( $v['publishedAt'] ?? '' );
-            if ( $pub && $pub >= $cutoff ) {
-                $count++;
-            }
+            if ( $pub && $pub >= $cutoff ) $count++;
         }
         return round( $count / $months, 1 );
     }
  
-    /**
-     * Средний ER = (likes / views) * 100 по последним видео с >0 просмотров.
-     */
     public function calc_avg_er( array $videos ) {
         $ers = [];
         foreach ( $videos as $v ) {
@@ -593,9 +599,6 @@ class PW_Audit_Analyzer {
         return round( array_sum( $ers ) / count( $ers ), 2 );
     }
  
-    /**
-     * Проверяет наличие паузы > $days_threshold дней среди последних видео.
-     */
     public function has_regularity_gap( array $videos, int $days_threshold = 60 ) {
         if ( count( $videos ) < 2 ) return false;
         $dates = array_map( fn( $v ) => strtotime( $v['publishedAt'] ?? 0 ), $videos );
@@ -614,19 +617,43 @@ class PW_Audit_Analyzer {
         return false;
     }
  
-    /**
-     * Определяет risk_block2 по количеству и уровню PHP-сигналов.
-     * По ТЗ §5.2.1: 2+ HIGH → 'high'; 1 HIGH → 'medium'; 0 HIGH → 'low'
-     */
     public function get_block2_risk_from_signals( array $php_signals ) {
         $high_count = 0;
         foreach ( $php_signals as $s ) {
-            if ( ( $s['level'] ?? '' ) === 'high' ) {
-                $high_count++;
-            }
+            if ( ( $s['level'] ?? '' ) === 'high' ) $high_count++;
         }
         if ( $high_count >= 2 ) return 'high';
         if ( $high_count >= 1 ) return 'medium';
         return 'low';
+    }
+ 
+    private function calc_retry_date( string $published_at ): string {
+        if ( empty( $published_at ) ) return '';
+        try {
+            $date = new DateTimeImmutable( $published_at );
+        } catch ( \Exception $e ) {
+            return '';
+        }
+        $retry = $date->modify( '+6 months' );
+        $now   = new DateTimeImmutable();
+        if ( $retry <= $now ) return '';
+ 
+        if ( class_exists( 'IntlDateFormatter' ) ) {
+            $fmt = new \IntlDateFormatter( 'ru_RU', \IntlDateFormatter::LONG, \IntlDateFormatter::NONE, 'UTC', \IntlDateFormatter::GREGORIAN, 'd MMMM yyyy' );
+            $result = $fmt->format( $retry );
+            if ( $result !== false ) return $result;
+        }
+ 
+        $months_ru = [ 'января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря' ];
+        return (int)$retry->format('j') . ' ' . $months_ru[(int)$retry->format('n') - 1] . ' ' . (int)$retry->format('Y');
+    }
+ 
+    private function calc_months_left( string $published_at ): float {
+        if ( empty( $published_at ) ) return 0;
+        $created = strtotime( $published_at );
+        if ( ! $created ) return 0;
+        $age_months = ( time() - $created ) / ( 30.44 * 24 * 3600 );
+        $left = 6.0 - $age_months;
+        return $left <= 0 ? 0 : round( $left, 1 );
     }
 }

@@ -319,7 +319,7 @@ function payway_inject_audit_history_loader_v2() {
 add_action( 'wp_footer', function () {
     // Загружаем на всех SPA-страницах — без этого скрипт не работает при SPA-навигации
     if ( ! payway_is_spa_page() ) return;
-    $url = plugin_dir_url( __FILE__ ) . 'assets/audit-ui-inject.js?ver=9.6';
+    $url = plugin_dir_url( __FILE__ ) . 'assets/audit-ui-inject.js?ver=9.7';
     echo '<script src="' . esc_url( $url ) . '"></script>' . "\n";
 }, 5 );
  

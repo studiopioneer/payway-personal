@@ -1500,7 +1500,6 @@
         // Sprint v5.0: вкладка «Ниша»
         var nicheContent = buildNicheTab(full);
         if (nicheContent) panel.appendChild(nicheContent);
-      }
       } else if (td.type === 'aislop') {
         // Sprint v5.1: вкладка «AI Slop»
         var aislopContent = buildAislopTab(full);

@@ -1801,22 +1801,36 @@
         _wasProcessing = false;
         removeInject(); // снимает pw-report-active + pw-form-page-active через CSS-класс
  
+        // Сразу вешаем нужный CSS-класс — предотвращает flash Vue-контента
+        if (isAuditReportPage()) {
+          document.body.classList.add('pw-report-active');
+        } else if (isAuditFormPage()) {
+          document.body.classList.add('pw-form-page-active');
+        }
+ 
         if (isAuditPage()) {
           var _navUrlId = getAuditIdFromUrl();
+ 
+          // Ожидаем контейнер с ретраями (Vue Router может ещё не отрисовать DOM)
+          var _navDone = false;
+          function waitContainer(cb, tries) {
+            if (_navDone) return;
+            var el = document.querySelector('[data-v-app] .col:not(.col-fixed) > div');
+            if (el) { _navDone = true; cb(el); return; }
+            if (tries > 0) setTimeout(function() { waitContainer(cb, tries - 1); }, 100);
+          }
+ 
           if (_navUrlId) {
-            // Немедленно скрываем Vue через CSS-класс (надёжнее inline-style)
-            document.body.classList.add('pw-report-active');
             // Подсказываем Vue загрузить правильный аудит в store
             var _navS = getStore();
             if (_navS) {
               _navS.auditId = parseInt(_navUrlId);
               if (typeof _navS.pollStatus === 'function') _navS.pollStatus();
             }
-            // Показываем loading screen и загружаем через наш API
-            setTimeout(function () {
+            // Ждём контейнер (до 2000ms) → вставляем loading screen → грузим отчёт
+            waitContainer(function (_cnt) {
               if (!isAuditPage() || !getAuditIdFromUrl()) { removeInject(); return; }
-              var _cnt = document.querySelector('[data-v-app] .col:not(.col-fixed) > div');
-              if (_cnt && !document.getElementById('pw-audit-inject')) {
+              if (!document.getElementById('pw-audit-inject')) {
                 var _inj = h('div', { id: 'pw-audit-inject' });
                 _cnt.appendChild(_inj);
                 _inj.appendChild(buildLoadingScreen());
@@ -1831,9 +1845,18 @@
                   if (_e) _e.innerHTML = '<p style="color:#dc2626;padding:24px;font-size:13px">Не удалось загрузить отчёт. <a href="/audit?id=' + _navUrlId + '" style="color:#E8192C">Обновить</a></p>';
                 }
               });
-            }, 250);
+            }, 20); // 20 попыток × 100ms = до 2000ms
+          } else {
+            // /audit без id — вставляем лендинг как только контейнер готов
+            waitContainer(function (_cnt) {
+              if (!isAuditFormPage()) return;
+              if (!document.getElementById('pw-audit-landing')) {
+                var _land = buildLandingBlock();
+                _cnt.insertBefore(_land, _cnt.firstChild || null);
+                document.body.classList.add('pw-form-page-active');
+              }
+            }, 20);
           }
-          // /audit без id — лендинг покажется ниже в store-блоке
         }
         return; // пропускаем store-polling в этот тик
       }

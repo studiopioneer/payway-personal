@@ -264,7 +264,7 @@
       '.pw-table-legend{display:flex;gap:16px;margin-top:8px;font-size:11px;color:#aaa;flex-wrap:wrap}',
       '.pw-legend-sq{width:10px;height:10px;border-radius:2px;display:inline-block;margin-right:4px;vertical-align:middle}',
       /* Donate block */
-      '.pw-donate-section{margin:16px 18px;padding:20px;background:linear-gradient(135deg,#fff5f5 0%,#fff 100%);border:1px solid #fecaca;border-radius:12px}',
+      '.pw-donate-section{margin:16px 18px;padding:16px 20px;background:linear-gradient(135deg,#fff5f5 0%,#fff 100%);border:1px solid #fecaca;border-radius:12px;max-width:520px}',
       '.pw-donate-header{display:flex;align-items:flex-start;gap:14px;margin-bottom:16px}',
       '.pw-donate-title{font-size:14px;font-weight:600;color:#1a1a1a;margin-bottom:5px}',
       '.pw-donate-sub{font-size:12px;color:#666;line-height:1.6}',
@@ -732,7 +732,7 @@
     section.appendChild(inputRow);
  
     // Submit button
-    var submitBtn = h('button', { class: 'pw-donate-btn' }, 'Отправить донат');
+    var submitBtn = h('button', { class: 'pw-donate-btn' }, 'Отправить донат с баланса');
     section.appendChild(submitBtn);
  
     // Result message
@@ -1269,10 +1269,6 @@
     var recsEl = buildRecommendations(recs, full);
     if (recsEl) wrap.appendChild(recsEl);
  
-    // —— v4.9: Блок доната (после рекомендаций) ——
-    var donateEl = buildDonateBlock();
-    if (donateEl) wrap.appendChild(donateEl);
- 
     // —— Sprint 5: Чеклист модератора (admin only) ——
     var modBlock = buildModeratorChecklist(full);
     if (modBlock) wrap.appendChild(modBlock);
@@ -1713,6 +1709,12 @@
  
     // 2. Три блока-карточки
     inject.appendChild(buildBlocksRow(report));
+ 
+    // 2.5: Блок доната — видимая часть экрана, до табов отчёта
+    if (isPaid) {
+      var donateElTop = buildDonateBlock();
+      if (donateElTop) inject.appendChild(donateElTop);
+    }
  
     // 3. Основной контент
  

@@ -253,6 +253,12 @@ echo '<script>window.paywayAuditCfg={nonce:"' . esc_js( $nonce ) . '",is_admin:'
          'h["X-WP-Nonce"]=(window.paywayAuditCfg&&window.paywayAuditCfg.nonce)||"";' .
          'h["X-Payway-Token"]=(window.paywayAuditCfg&&window.paywayAuditCfg.authToken)||"";' .
          'o.headers=h;}return oF.call(this,u,o);}})());</script>';
+ 
+    // Cloak Vue content on /audit pages to prevent flash before inject.js takes over
+    if ( preg_match( '#/audit#', $uri ) ) {
+        echo '<style>.pw-preload [data-v-app] .col:not(.col-fixed)>div>*:not(#pw-audit-inject):not(#pw-audit-landing){display:none!important}</style>';
+        echo '<script>document.body.classList.add("pw-preload");</script>';
+    }
 } );
  
 add_action( 'wp_enqueue_scripts', function () {
@@ -313,7 +319,7 @@ function payway_inject_audit_history_loader_v2() {
 add_action( 'wp_footer', function () {
     // Загружаем на всех SPA-страницах — без этого скрипт не работает при SPA-навигации
     if ( ! payway_is_spa_page() ) return;
-    $url = plugin_dir_url( __FILE__ ) . 'assets/audit-ui-inject.js?ver=9.1';
+    $url = plugin_dir_url( __FILE__ ) . 'assets/audit-ui-inject.js?ver=9.2';
     echo '<script src="' . esc_url( $url ) . '"></script>' . "\n";
 }, 5 );
  

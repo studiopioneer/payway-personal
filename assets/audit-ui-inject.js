@@ -932,6 +932,20 @@
     }
  
     // 2. Rest of recommendations
+    // v5.0: дедупликация по первым 35 символам title
+    if (Array.isArray(recs) && recs.length > 1) {
+      var seenKeys = [];
+      recs = recs.filter(function(rec) {
+        var key = (typeof rec === 'object'
+          ? (rec.title || rec.text || '')
+          : String(rec))
+          .toLowerCase().replace(/\s+/g, ' ').trim().substring(0, 35);
+        if (!key) return true;
+        if (seenKeys.indexOf(key) !== -1) return false;
+        seenKeys.push(key);
+        return true;
+      });
+    }
     if (Array.isArray(recs) && recs.length) {
       recs.forEach(function (rec) {
         idx++;
@@ -1395,6 +1409,33 @@
       wrap.appendChild(panel);
     });
  
+    // —— Sprint v5.0: Блок «Сильные стороны» ——
+    var strengths = [];
+    var cmStrength = (full && full.channel_metrics) || {};
+    var erVal = parseFloat(cmStrength.avg_er || 0);
+    var erNicheVal = (full && full.niche_analysis && full.niche_analysis.niche_er_median) || 2;
+    if (erVal >= 3.5 || erVal >= erNicheVal) {
+      strengths.push('ER ' + erVal.toFixed(2) + '% — отличная вовлечённость аудитории'
+        + (erVal >= erNicheVal ? ' (выше медианы ниши)' : ''));
+    }
+    if ((cmStrength.subscriber_count || 0) >= 10000) {
+      strengths.push('Аудитория 10k+ подписчиков — хорошая база для монетизации');
+    }
+    var videosList5 = Array.isArray(cmStrength.videos_list) ? cmStrength.videos_list : [];
+    var avgErVideos = videosList5.length
+      ? videosList5.reduce(function(s, v) { return s + (v.er || 0); }, 0) / videosList5.length : 0;
+    if (avgErVideos >= 4) {
+      strengths.push('Среднее ER видео ' + avgErVideos.toFixed(2) + '% — контент хорошо резонирует с аудиторией');
+    }
+    if (strengths.length) {
+      var strengthBox = h('div', { style: 'margin:0 18px 14px;padding:12px 15px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px' });
+      strengthBox.appendChild(h('div', { style: 'font-size:12px;font-weight:600;color:#15803d;margin-bottom:7px' }, '✅ Сильные стороны канала'));
+      strengths.forEach(function(s) {
+        strengthBox.appendChild(h('div', { style: 'font-size:12px;color:#166534;padding:2px 0;line-height:1.5' }, '• ' + s));
+      });
+      wrap.appendChild(strengthBox);
+    }
+ 
     // —— Sprint 5: Рекомендации для автора (redesign) ——
     var recsEl = buildRecommendations(recs, full);
     if (recsEl) wrap.appendChild(recsEl);
@@ -1839,6 +1880,25 @@
  
     // 2. Три блока-карточки
     inject.appendChild(buildBlocksRow(report));
+ 
+    // v5.0: Score-бейдж готовности к монетизации
+    var b1CriteriaScore = (full && Array.isArray(full.block1_criteria)) ? full.block1_criteria : [];
+    if (b1CriteriaScore.length > 0) {
+      var passedCount = b1CriteriaScore.filter(function(c) { return c.status === 'ok'; }).length;
+      var totalCount  = b1CriteriaScore.length;
+      var pct = Math.round(passedCount / totalCount * 100);
+      var scoreColor = pct >= 80 ? '#16a34a' : pct >= 50 ? '#d97706' : '#dc2626';
+      var scoreBg    = pct >= 80 ? '#f0fdf4' : pct >= 50 ? '#fffbeb' : '#fef2f2';
+      var scoreBdr   = pct >= 80 ? '#bbf7d0' : pct >= 50 ? '#fde68a' : '#fecaca';
+      var scoreRow = h('div', { style: 'display:flex;align-items:center;gap:8px;margin:0 0 12px;flex-wrap:wrap' });
+      var scoreBadge = h('div', { style:
+        'display:inline-flex;align-items:center;gap:6px;padding:5px 12px;' +
+        'background:' + scoreBg + ';border:1px solid ' + scoreBdr + ';border-radius:20px;' +
+        'font-size:12px;font-weight:600;color:' + scoreColor });
+      scoreBadge.textContent = 'Готовность к монетизации: ' + passedCount + '/' + totalCount + ' (' + pct + '%)';
+      scoreRow.appendChild(scoreBadge);
+      inject.appendChild(scoreRow);
+    }
  
     // 2.5: Блок доната — видимая часть экрана, до табов отчёта
     if (isPaid) {

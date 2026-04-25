@@ -1956,8 +1956,9 @@
   }
  
   // —— Старт ————————————————————————————————————————————————————————————————————————————————
-  // Немедленно скрываем Vue-элементы на /audit?id=X чтобы не было флеша Vue-контента
+  // Убираем preload-заглушку (добавлена в wp_head PHP) и сразу скрываем Vue на отчётах
   (function () {
+    document.body.classList.remove('pw-preload'); // снять cloak как только скрипт загружен
     if (isAuditReportPage()) {
       document.body.classList.add('pw-report-active');
     }

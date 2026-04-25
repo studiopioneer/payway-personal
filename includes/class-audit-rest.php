@@ -3,6 +3,7 @@
  * PW_Audit_REST — REST API контроллер аудита
  * Оркестрирует PW_YouTube_API, PW_Audit_Analyzer, PW_OpenAI_Client
  * Эндпоинты строго по ТЗ §7
+ * Sprint v5.0: сохранение и отдача niche_analysis
  */
 class PW_Audit_REST {
  
@@ -68,7 +69,6 @@ class PW_Audit_REST {
     }
  
     public function get_nonce() {
-        // Диагностика: что видит сервер
         $cookie_keys    = array_keys( $_COOKIE );
         $wp_cookie_name = '';
         $wp_cookie_val  = '';
@@ -198,9 +198,10 @@ class PW_Audit_REST {
         ];
  
         $report_full = array_merge( $report_full_raw, [
-            'block1_criteria'  => $ad['block1_criteria'],
-            'php_signals'      => $ad['php_signals'],
-            'channel_metrics'  => $ad['channel_metrics'],
+            'block1_criteria' => $ad['block1_criteria'],
+            'php_signals'     => $ad['php_signals'],
+            'channel_metrics' => $ad['channel_metrics'],
+            'niche_analysis'  => $ai_ok ? ( $ai_result['niche_analysis'] ?? null ) : null,
         ]);
  
         $table = $wpdb->prefix . 'pw_channel_audits';
@@ -285,12 +286,10 @@ class PW_Audit_REST {
             return new WP_Error( 'not_found', 'Аудит не найден', [ 'status' => 404 ] );
         }
  
-        // Уже разблокирован — просто вернуть полный отчёт
         if ( $audit->is_paid ) {
             return rest_ensure_response( $this->normalize_report( $audit, $user_id ) );
         }
  
-        // Проверка кредитов (только для не-администраторов)
         if ( ! current_user_can( 'manage_options' ) ) {
             $credit_check = PW_Audit_Credit::check( $user_id );
             if ( ! $credit_check['allowed'] ) {
@@ -346,7 +345,6 @@ class PW_Audit_REST {
                 . number_format( $balance, 2 ) . ')', [ 'status' => 402 ] );
         }
  
-        // Атомарное списание через транзакцию
         $wpdb->query( 'START TRANSACTION' );
         $fresh = (float) $wpdb->get_var(
             "SELECT meta_value FROM {$wpdb->usermeta}
@@ -484,6 +482,7 @@ class PW_Audit_REST {
                 'metric_explanations'      => $full['metric_explanations']        ?? null,
                 'content_allowed'          => $full['content_allowed']            ?? [],
                 'content_forbidden'        => $full['content_forbidden']          ?? [],
+                'niche_analysis'           => $full['niche_analysis']             ?? null,
             ];
         } else {
             $response['full'] = null;
@@ -522,7 +521,6 @@ class PW_Audit_REST {
             if ( $uid ) { wp_set_current_user( (int) $uid ); return true; }
         }
  
-        // Временный лог — убрать после подтверждения работы
         error_log( 'PW_Audit FAILED. URI=' . ( $_SERVER['REQUEST_URI'] ?? '' )
             . ' Cookies=' . implode( ',', array_keys( $_COOKIE ) )
             . ' HasToken=' . ( ! empty( $token ) ? 'yes' : 'no' )

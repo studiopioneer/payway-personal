@@ -4,6 +4,7 @@
  * Оркестрирует PW_YouTube_API, PW_Audit_Analyzer, PW_OpenAI_Client
  * Эндпоинты строго по ТЗ §7
  * Sprint v5.0: сохранение и отдача niche_analysis
+ * Sprint v5.1: сохранение и отдача aislop_signals, aislop_risk, aislop_summary
  */
 class PW_Audit_REST {
  
@@ -195,6 +196,8 @@ class PW_Audit_REST {
             'php_signals'       => $ad['php_signals'],
             'php_signals_count' => count( $ad['php_signals'] ),
             'verdict_reason'    => $verdict_reason,
+            'aislop_signals'    => $ad['aislop_signals'] ?? [],
+            'aislop_risk'       => $ad['aislop_risk'] ?? 'low',
         ];
  
         $report_full = array_merge( $report_full_raw, [
@@ -202,6 +205,9 @@ class PW_Audit_REST {
             'php_signals'     => $ad['php_signals'],
             'channel_metrics' => $ad['channel_metrics'],
             'niche_analysis'  => $ai_ok ? ( $ai_result['niche_analysis'] ?? null ) : null,
+            'aislop_signals'  => $ad['aislop_signals'] ?? [],
+            'aislop_risk'     => $ad['aislop_risk'] ?? 'low',
+            'aislop_summary'  => $ai_ok ? ( $ai_result['aislop_summary'] ?? null ) : null,
         ]);
  
         $table = $wpdb->prefix . 'pw_channel_audits';
@@ -455,6 +461,8 @@ class PW_Audit_REST {
                 'php_signals'       => $preview['php_signals']        ?? [],
                 'php_signals_count' => $preview['php_signals_count']  ?? 0,
                 'block1_criteria'   => $preview['block1_criteria']    ?? [],
+                'aislop_signals'    => $preview['aislop_signals']    ?? $full['aislop_signals'] ?? [],
+                'aislop_risk'       => $preview['aislop_risk']       ?? $full['aislop_risk']    ?? 'low',
             ],
             'unlock_info'    => [
                 'balance'          => $balance,
@@ -483,6 +491,9 @@ class PW_Audit_REST {
                 'content_allowed'          => $full['content_allowed']            ?? [],
                 'content_forbidden'        => $full['content_forbidden']          ?? [],
                 'niche_analysis'           => $full['niche_analysis']             ?? null,
+                'aislop_signals'           => $full['aislop_signals']             ?? [],
+                'aislop_risk'              => $full['aislop_risk']                ?? 'low',
+                'aislop_summary'           => $full['aislop_summary']             ?? null,
             ];
         } else {
             $response['full'] = null;

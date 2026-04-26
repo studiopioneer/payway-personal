@@ -56,6 +56,12 @@ PW_JWT_Auth::init();
  
 add_action( 'rest_api_init', function () { $c = new PW_Audit_REST(); $c->register_routes(); } );
 PW_Audit_Cron::register_hooks();
+ 
+// Sprint v5.2: очистка кеша конкурентов через 7 дней после запроса
+add_action( 'pw_delete_competitors_cache', function( $cache_key ) {
+    delete_option( $cache_key );
+} );
+ 
 // ── v4.9: Создание таблицы donations для существующих установок ──────────────
 add_action( 'init', function () {
     if ( get_option( 'payway_donations_table_created' ) ) return;
@@ -319,7 +325,7 @@ function payway_inject_audit_history_loader_v2() {
 add_action( 'wp_footer', function () {
     // Загружаем на всех SPA-страницах — без этого скрипт не работает при SPA-навигации
     if ( ! payway_is_spa_page() ) return;
-    $url = plugin_dir_url( __FILE__ ) . 'assets/audit-ui-inject.js?ver=9.9';
+    $url = plugin_dir_url( __FILE__ ) . 'assets/audit-ui-inject.js?ver=10.0';
     echo '<script src="' . esc_url( $url ) . '"></script>' . "\n";
 }, 5 );
  
@@ -341,3 +347,4 @@ add_action( 'wp_footer', function () {
     echo '<script>window.paywayWithdrawalCfg={cryptoTariff:' . intval( $tariff ) . '};</script>' . "\n";
     echo '<script src="' . esc_url( $url ) . '"></script>' . "\n";
 }, 5 );
+ 

@@ -6,6 +6,7 @@
  * Sprint v5.0: сохранение и отдача niche_analysis
  * Sprint v5.1: сохранение и отдача aislop_signals, aislop_risk, aislop_summary
  * Sprint v5.2: эндпоинт GET /audit/{id}/competitors — поиск конкурентов + donation gate + 7-day cache
+ * Sprint v5.3: сегментация peer/leader, фильтрация мусора, топ-видео на конкурента
  */
 class PW_Audit_REST {
  
@@ -542,9 +543,12 @@ class PW_Audit_REST {
         $cache_key = 'pw_competitors_' . $audit_id;
         $cached    = get_option( $cache_key );
         if ( ! empty( $cached ) && is_array( $cached ) ) {
+            $preview_tmp = json_decode( $audit->report_preview ?? '{}', true ) ?: [];
+            $own_subs_cached = (int) ( $preview_tmp['subscriber_count'] ?? 0 );
             return rest_ensure_response( [
                 'success'     => true,
                 'competitors' => $cached,
+                'own_subs'    => $own_subs_cached,
                 'from_cache'  => true,
             ] );
         }
@@ -611,11 +615,46 @@ class PW_Audit_REST {
             );
         }
  
-        // Форматируем и берём первые 5
-        $competitors = array_slice(
-            array_map( [ $this, 'format_competitor' ], $channels_data ),
-            0, 5
-        );
+        // Шаг A: фильтрация мусорных результатов
+        $MIN_SUBS   = 100;
+        $MIN_VIDEOS = 5;
+        $channels_data = array_values( array_filter( $channels_data, function ( $ch ) use ( $MIN_SUBS, $MIN_VIDEOS ) {
+            $subs   = (int) ( $ch['statistics']['subscriberCount'] ?? 0 );
+            $videos = (int) ( $ch['statistics']['videoCount']       ?? 0 );
+            return $subs >= $MIN_SUBS && $videos >= $MIN_VIDEOS;
+        } ) );
+ 
+        if ( empty( $channels_data ) ) {
+            return new WP_Error( 'no_competitors', 'Релевантные конкуренты не найдены для данной ниши.', [ 'status' => 404 ] );
+        }
+ 
+        // Шаг B: сегментировать по подписчикам (peer 0.3x–3x, leader > 3x)
+        $own_subs    = (int) ( $preview['subscriber_count'] ?? 0 );
+        $formatted_all = array_map( function ( $ch ) use ( $own_subs ) {
+            $comp  = $this->format_competitor( $ch );
+            $subs  = $comp['subscriber_count'];
+            $ratio = $own_subs > 0 ? ( $subs / $own_subs ) : 999;
+            $comp['segment'] = ( $ratio >= 0.3 && $ratio <= 3.0 ) ? 'peer' : 'leader';
+            $comp['ratio']   = round( $ratio, 2 );
+            return $comp;
+        }, $channels_data );
+ 
+        // Шаг C: до 3 peer (ближайших) + до 2 leader (флагманов)
+        $peers   = array_values( array_filter( $formatted_all, fn( $c ) => $c['segment'] === 'peer' ) );
+        $leaders = array_values( array_filter( $formatted_all, fn( $c ) => $c['segment'] === 'leader' ) );
+ 
+        usort( $peers,   function ( $a, $b ) { return abs( $a['ratio'] - 1.0 ) <=> abs( $b['ratio'] - 1.0 ); } );
+        usort( $leaders, fn( $a, $b ) => $b['subscriber_count'] - $a['subscriber_count'] );
+ 
+        $peers   = array_slice( $peers,   0, 3 );
+        $leaders = array_slice( $leaders, 0, 2 );
+        $competitors = array_merge( $peers, $leaders );
+ 
+        // Шаг D: загружаем топ-видео для каждого конкурента (2 квоты × N каналов)
+        foreach ( $competitors as &$comp ) {
+            $comp['top_videos'] = $this->yt_api->get_channel_top_videos( $comp['channel_id'], 3 );
+        }
+        unset( $comp );
  
         // Сохраняем в кеш на 7 дней
         update_option( $cache_key, $competitors, false );
@@ -628,6 +667,7 @@ class PW_Audit_REST {
         return rest_ensure_response( [
             'success'     => true,
             'competitors' => $competitors,
+            'own_subs'    => $own_subs,
             'from_cache'  => false,
         ] );
     }

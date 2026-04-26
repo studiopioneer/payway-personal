@@ -5,6 +5,7 @@
  * Эндпоинты строго по ТЗ §7
  * Sprint v5.0: сохранение и отдача niche_analysis
  * Sprint v5.1: сохранение и отдача aislop_signals, aislop_risk, aislop_summary
+ * Sprint v5.2: эндпоинт GET /audit/{id}/competitors — поиск конкурентов + donation gate + 7-day cache
  */
 class PW_Audit_REST {
  
@@ -65,6 +66,13 @@ class PW_Audit_REST {
         register_rest_route( 'payway/v1', '/donate', [
             'methods'             => 'POST',
             'callback'            => [ $this, 'process_donate' ],
+            'permission_callback' => [ $this, 'check_audit_owner' ],
+        ]);
+ 
+        // Sprint v5.2: конкуренты в нише
+        register_rest_route( 'payway/v1', '/audit/(?P<id>\d+)/competitors', [
+            'methods'             => 'POST',
+            'callback'            => [ $this, 'get_competitors' ],
             'permission_callback' => [ $this, 'check_audit_owner' ],
         ]);
     }
@@ -500,6 +508,178 @@ class PW_Audit_REST {
         }
  
         return $response;
+    }
+ 
+ 
+    // ─────────────────────────────────────────────────────────
+    // POST /audit/{id}/competitors — конкуренты в нише (v5.2)
+    // ─────────────────────────────────────────────────────────
+ 
+    public function get_competitors( WP_REST_Request $request ) {
+        global $wpdb;
+ 
+        $audit_id = (int) $request->get_param( 'id' );
+        $user_id  = get_current_user_id();
+        $table    = $wpdb->prefix . 'pw_channel_audits';
+ 
+        // Проверяем аудит
+        if ( current_user_can( 'manage_options' ) ) {
+            $audit = $wpdb->get_row( $wpdb->prepare(
+                "SELECT * FROM {$table} WHERE id = %d", $audit_id
+            ) );
+        } else {
+            $audit = $wpdb->get_row( $wpdb->prepare(
+                "SELECT * FROM {$table} WHERE id = %d AND user_id = %d",
+                $audit_id, $user_id
+            ) );
+        }
+ 
+        if ( ! $audit ) {
+            return new WP_Error( 'not_found', 'Аудит не найден', [ 'status' => 404 ] );
+        }
+ 
+        // Кеш — 7 дней
+        $cache_key = 'pw_competitors_' . $audit_id;
+        $cached    = get_option( $cache_key );
+        if ( ! empty( $cached ) && is_array( $cached ) ) {
+            return rest_ensure_response( [
+                'success'     => true,
+                'competitors' => $cached,
+                'from_cache'  => true,
+            ] );
+        }
+ 
+        // Donation gate: донат ПОСЛЕ создания аудита
+        if ( ! current_user_can( 'manage_options' ) ) {
+            $donations_table = $wpdb->prefix . 'payway_donations';
+            $donation = $wpdb->get_var( $wpdb->prepare(
+                "SELECT id FROM {$donations_table}
+                 WHERE user_id = %d AND created_at > %s
+                 ORDER BY created_at DESC LIMIT 1",
+                $user_id,
+                $audit->time
+            ) );
+ 
+            if ( ! $donation ) {
+                return new WP_Error(
+                    'donation_required',
+                    'Для просмотра конкурентов необходим донат после запуска аудита.',
+                    [ 'status' => 402 ]
+                );
+            }
+        }
+ 
+        // Получаем topic_categories и country из report_preview
+        $preview          = json_decode( $audit->report_preview ?? '{}', true ) ?: [];
+        $topic_categories = $preview['topic_categories'] ?? [];
+        $country          = $preview['country'] ?? '';
+ 
+        // Собственный channel_id аудита — исключаем из конкурентов
+        $own_channel_id = $audit->channel_id ?? '';
+ 
+        // Строим поисковый запрос
+        $niche_query = $this->build_niche_query( $topic_categories, $country );
+ 
+        // search.list: 8 каналов (100 квот)
+        $search_results = $this->yt_api->search_channels( $niche_query, 8 );
+        if ( is_wp_error( $search_results ) ) {
+            return new WP_Error(
+                'yt_search_failed',
+                'YouTube поиск недоступен: ' . $search_results->get_error_message(),
+                [ 'status' => 502 ]
+            );
+        }
+ 
+        // Собираем channel_ids, фильтруем свой канал
+        $channel_ids = array_values( array_filter(
+            array_map( fn( $r ) => $r['channelId'] ?? '', $search_results ),
+            fn( $id ) => $id && $id !== $own_channel_id
+        ) );
+        $channel_ids = array_slice( $channel_ids, 0, 7 ); // берём с запасом
+ 
+        if ( empty( $channel_ids ) ) {
+            return new WP_Error( 'no_competitors', 'Конкуренты не найдены для данной ниши.', [ 'status' => 404 ] );
+        }
+ 
+        // channels.list: обогащаем данные (1 квота для всего массива)
+        $channels_data = $this->yt_api->get_channels_data( $channel_ids );
+        if ( is_wp_error( $channels_data ) ) {
+            return new WP_Error(
+                'yt_channels_failed',
+                'Ошибка получения данных каналов: ' . $channels_data->get_error_message(),
+                [ 'status' => 502 ]
+            );
+        }
+ 
+        // Форматируем и берём первые 5
+        $competitors = array_slice(
+            array_map( [ $this, 'format_competitor' ], $channels_data ),
+            0, 5
+        );
+ 
+        // Сохраняем в кеш на 7 дней
+        update_option( $cache_key, $competitors, false );
+        wp_schedule_single_event(
+            time() + 7 * DAY_IN_SECONDS,
+            'pw_delete_competitors_cache',
+            [ $cache_key ]
+        );
+ 
+        return rest_ensure_response( [
+            'success'     => true,
+            'competitors' => $competitors,
+            'from_cache'  => false,
+        ] );
+    }
+ 
+    /**
+     * Строит поисковый запрос для ниши из topic_categories и country
+     */
+    private function build_niche_query( array $topics, string $country ): string {
+        $niches = [];
+        foreach ( $topics as $url ) {
+            $parts = explode( '/', rtrim( $url, '/' ) );
+            $niche = str_replace( '_', ' ', end( $parts ) );
+            if ( $niche ) $niches[] = $niche;
+        }
+        $query = implode( ' ', array_slice( $niches, 0, 2 ) );
+        if ( in_array( $country, [ 'RU', 'BY', 'KZ', 'UA' ], true ) ) {
+            $query .= ' канал';
+        }
+        return trim( $query ) ?: 'YouTube channel';
+    }
+ 
+    /**
+     * Форматирует данные одного канала для ответа
+     */
+    private function format_competitor( array $channel ): array {
+        $stats   = $channel['statistics'] ?? [];
+        $snippet = $channel['snippet']    ?? [];
+        $subs    = (int) ( $stats['subscriberCount'] ?? 0 );
+        $views   = (int) ( $stats['viewCount']        ?? 0 );
+        $handle  = $snippet['customUrl'] ?? '';
+        return [
+            'channel_id'       => $channel['id']     ?? '',
+            'title'            => $snippet['title']   ?? '',
+            'handle'           => $handle,
+            'thumb'            => $snippet['thumbnails']['default']['url'] ?? '',
+            'subscriber_count' => $subs,
+            'subscriber_fmt'   => $this->format_number( $subs ),
+            'view_count'       => $views,
+            'view_count_fmt'   => $this->format_number( $views ),
+            'video_count'      => (int) ( $stats['videoCount'] ?? 0 ),
+            'country'          => $snippet['country'] ?? '',
+            'url'              => 'https://youtube.com/' . ( $handle ?: 'channel/' . ( $channel['id'] ?? '' ) ),
+        ];
+    }
+ 
+    /**
+     * Форматирует число в читаемый вид: 1250000 → 1.2M, 45000 → 45k
+     */
+    private function format_number( int $n ): string {
+        if ( $n >= 1_000_000 ) return round( $n / 1_000_000, 1 ) . 'M';
+        if ( $n >= 1_000 )     return round( $n / 1_000 )       . 'k';
+        return (string) $n;
     }
  
     // ─────────────────────────────────────────────────────────

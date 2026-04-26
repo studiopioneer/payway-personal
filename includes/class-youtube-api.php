@@ -3,6 +3,7 @@
  * PW_YouTube_API — получение данных канала через YouTube Data API v3
  * Поля строго по ТЗ §4.3
  * Sprint v5.1: добавлен description в videos_list()
+ * Sprint v5.2: добавлены search_channels() и get_channels_data() для поиска конкурентов
  */
 class PW_YouTube_API {
  
@@ -169,6 +170,66 @@ class PW_YouTube_API {
             ];
         }
         return $videos;
+    }
+ 
+ 
+    /**
+     * search_channels — поиск каналов по запросу (search.list, 100 квот/запрос)
+     * Sprint v5.2: для поиска конкурентов в нише
+     */
+    public function search_channels( string $query, int $max_results = 8 ): array|WP_Error {
+        $params = [
+            'part'       => 'snippet',
+            'q'          => $query,
+            'type'       => 'channel',
+            'maxResults' => $max_results,
+            'order'      => 'relevance',
+            'key'        => $this->api_key,
+        ];
+        $url      = self::API_BASE . 'search?' . http_build_query( $params );
+        $response = wp_remote_get( $url, [ 'timeout' => 15 ] );
+ 
+        if ( is_wp_error( $response ) ) {
+            return new WP_Error( 'yt_http_error', $response->get_error_message() );
+        }
+ 
+        $data = json_decode( wp_remote_retrieve_body( $response ), true );
+ 
+        if ( ! empty( $data['error'] ) ) {
+            return new WP_Error( 'yt_search_error', $data['error']['message'] ?? 'YouTube Search API error' );
+        }
+ 
+        return array_map( function ( $item ) {
+            return [ 'channelId' => $item['id']['channelId'] ?? '' ];
+        }, $data['items'] ?? [] );
+    }
+ 
+    /**
+     * get_channels_data — массовый запрос channels.list (snippet + statistics)
+     * Sprint v5.2: обогащение данных найденных каналов
+     */
+    public function get_channels_data( array $channel_ids ): array|WP_Error {
+        if ( empty( $channel_ids ) ) return [];
+ 
+        $params = [
+            'part' => 'snippet,statistics',
+            'id'   => implode( ',', array_unique( $channel_ids ) ),
+            'key'  => $this->api_key,
+        ];
+        $url      = self::API_BASE . 'channels?' . http_build_query( $params );
+        $response = wp_remote_get( $url, [ 'timeout' => 15 ] );
+ 
+        if ( is_wp_error( $response ) ) {
+            return new WP_Error( 'yt_http_error', $response->get_error_message() );
+        }
+ 
+        $data = json_decode( wp_remote_retrieve_body( $response ), true );
+ 
+        if ( ! empty( $data['error'] ) ) {
+            return new WP_Error( 'yt_channels_error', $data['error']['message'] ?? 'YouTube Channels API error' );
+        }
+ 
+        return $data['items'] ?? [];
     }
  
     public function parse_duration( $duration ) {

@@ -354,6 +354,45 @@
       '.pw-comp-notice{text-align:center;margin-top:8px;font-size:12px}',
       '.pw-comp-notice.ok{color:#16a34a}',
       '.pw-comp-notice.err{color:#dc2626}',
+      /* Competitors v2: sections */
+      '.pw-comp-section{margin-bottom:20px}',
+      '.pw-comp-section-title{font-size:11px;font-weight:600;color:#bbb;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;display:flex;align-items:center;gap:8px}',
+      '.pw-comp-section-badge{font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px}',
+      '.pw-comp-badge-peer{background:#EFF6FF;color:#1D4ED8}',
+      '.pw-comp-badge-leader{background:#FFF7ED;color:#C2410C}',
+      '.pw-comp-badge-trends{background:#F0FDF4;color:#15803D}',
+      /* Competitor card */
+      '.pw-comp-card{background:#f9fafb;border:1px solid #f0f0f0;border-radius:10px;padding:14px 16px;margin-bottom:10px}',
+      '.pw-comp-card-header{display:flex;align-items:center;gap:12px;margin-bottom:10px}',
+      '.pw-comp-card-meta{flex:1;min-width:0}',
+      '.pw-comp-card-name{font-size:13px;font-weight:500;color:#1a1a1a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+      '.pw-comp-card-handle{font-size:11px;color:#aaa;margin-top:2px}',
+      '.pw-comp-stats-row{display:flex;gap:16px;margin-bottom:10px}',
+      '.pw-comp-stat{display:flex;flex-direction:column}',
+      '.pw-comp-stat-label{font-size:10px;color:#bbb;font-weight:600;text-transform:uppercase;letter-spacing:.04em}',
+      '.pw-comp-stat-value{font-size:14px;font-weight:600;color:#1a1a1a}',
+      '.pw-comp-stat-vs{font-size:11px;margin-top:1px}',
+      '.pw-comp-stat-vs.up{color:#16a34a}',
+      '.pw-comp-stat-vs.down{color:#dc2626}',
+      /* Video cards row */
+      '.pw-comp-videos{display:flex;gap:8px;flex-wrap:wrap}',
+      '.pw-comp-video-card{display:flex;gap:8px;background:#fff;border:1px solid #e8e8e8;border-radius:8px;padding:8px;cursor:pointer;flex:1;min-width:200px;max-width:340px;transition:box-shadow .15s}',
+      '.pw-comp-video-card:hover{box-shadow:0 2px 8px rgba(0,0,0,.08)}',
+      '.pw-comp-video-thumb{width:64px;height:36px;border-radius:4px;object-fit:cover;flex-shrink:0;background:#f0f0f0}',
+      '.pw-comp-video-info{flex:1;min-width:0}',
+      '.pw-comp-video-title{font-size:11px;font-weight:500;color:#1a1a1a;line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}',
+      '.pw-comp-video-views{font-size:10px;color:#aaa;margin-top:3px}',
+      /* Trends section */
+      '.pw-comp-trends-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}',
+      '.pw-comp-trend-card{background:#f9fafb;border:1px solid #f0f0f0;border-radius:8px;overflow:hidden;cursor:pointer;transition:box-shadow .15s}',
+      '.pw-comp-trend-card:hover{box-shadow:0 2px 8px rgba(0,0,0,.1)}',
+      '.pw-comp-trend-thumb{width:100%;aspect-ratio:16/9;object-fit:cover;display:block;background:#eee}',
+      '.pw-comp-trend-body{padding:8px}',
+      '.pw-comp-trend-title{font-size:12px;font-weight:500;color:#1a1a1a;line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;margin-bottom:5px}',
+      '.pw-comp-trend-meta{display:flex;justify-content:space-between;font-size:11px;color:#aaa}',
+      '.pw-comp-trend-channel{font-size:10px;color:#E8192C;font-weight:500}',
+      '@media(max-width:640px){.pw-comp-trends-grid{grid-template-columns:repeat(2,1fr)}}',
+      '@media(max-width:400px){.pw-comp-trends-grid{grid-template-columns:1fr}}',
     ].join('');
     document.head.appendChild(style);
   }
@@ -1185,56 +1224,170 @@
     wrap.appendChild(contentArea);
     wrap.appendChild(noticeEl);
  
-    // ── Таблица с реальными данными ───────────────────────────────────────
-    function renderCompetitors(competitors) {
+    // ── Вспомогательная: карточка одного видео ───────────────────────────
+    function buildVideoCard(video) {
+      var card = h('div', { class: 'pw-comp-video-card' });
+      card.addEventListener('click', function() {
+        window.open(video.url, '_blank', 'noopener');
+      });
+      var thumb = h('img', {
+        class: 'pw-comp-video-thumb', src: video.thumb || '', alt: '', loading: 'lazy'
+      });
+      var info = h('div', { class: 'pw-comp-video-info' });
+      info.appendChild(h('div', { class: 'pw-comp-video-title' }, video.title || ''));
+      info.appendChild(h('div', { class: 'pw-comp-video-views' },
+        (video.views_fmt || '—') + ' просм.'));
+      card.appendChild(thumb);
+      card.appendChild(info);
+      return card;
+    }
+ 
+    // ── Вспомогательная: карточка конкурента ─────────────────────────────
+    function buildCompetitorCard(comp, ownSubs) {
+      var card = h('div', { class: 'pw-comp-card' });
+ 
+      // Header: аватар + название + хендл + ссылка
+      var header = h('div', { class: 'pw-comp-card-header' });
+      if (comp.thumb) {
+        header.appendChild(h('img', { class: 'pw-comp-avatar', src: comp.thumb, alt: '' }));
+      } else {
+        header.appendChild(h('div', { class: 'pw-comp-av-ph' },
+          (comp.title || '?').substring(0, 2).toUpperCase()));
+      }
+      var meta = h('div', { class: 'pw-comp-card-meta' });
+      meta.appendChild(h('div', { class: 'pw-comp-card-name', title: comp.title }, comp.title || ''));
+      if (comp.handle) {
+        meta.appendChild(h('div', { class: 'pw-comp-card-handle' },
+          '@' + comp.handle.replace(/^@/, '')));
+      }
+      header.appendChild(meta);
+      if (comp.url) {
+        header.appendChild(h('a', {
+          class: 'pw-comp-link', href: comp.url, target: '_blank', rel: 'noopener'
+        }, 'Открыть →'));
+      }
+      card.appendChild(header);
+ 
+      // Метрики с comparisons
+      var statsRow = h('div', { class: 'pw-comp-stats-row' });
+      function statItem(label, value, vsText, vsDir) {
+        var s = h('div', { class: 'pw-comp-stat' });
+        s.appendChild(h('div', { class: 'pw-comp-stat-label' }, label));
+        s.appendChild(h('div', { class: 'pw-comp-stat-value' }, value));
+        if (vsText) {
+          s.appendChild(h('div', { class: 'pw-comp-stat-vs ' + vsDir }, vsText));
+        }
+        return s;
+      }
+ 
+      // Сравнение подписчиков
+      var subsDiff = '', subsDir = '';
+      if (ownSubs > 0 && comp.subscriber_count > 0) {
+        var ratio = comp.subscriber_count / ownSubs;
+        if (ratio >= 1) {
+          subsDiff = 'В ' + ratio.toFixed(1) + '× больше вас';
+          subsDir  = 'up';
+        } else {
+          subsDiff = 'В ' + (1 / ratio).toFixed(1) + '× меньше вас';
+          subsDir  = 'down';
+        }
+      }
+      statsRow.appendChild(statItem('Подписчики', comp.subscriber_fmt || '—', subsDiff, subsDir));
+      statsRow.appendChild(statItem('Просмотры',  comp.view_count_fmt || '—', '', ''));
+      statsRow.appendChild(statItem('Видео',      String(comp.video_count || 0), '', ''));
+      card.appendChild(statsRow);
+ 
+      // Топ-видео (до 2)
+      var videos = Array.isArray(comp.top_videos) ? comp.top_videos.slice(0, 2) : [];
+      if (videos.length) {
+        var videosWrap = h('div', { class: 'pw-comp-videos' });
+        videos.forEach(function(v) { videosWrap.appendChild(buildVideoCard(v)); });
+        card.appendChild(videosWrap);
+      }
+      return card;
+    }
+ 
+    // ── Таблица с реальными данными — три секции ──────────────────────────
+    function renderCompetitors(competitors, ownSubs) {
       contentArea.innerHTML = '';
       contentArea.className = '';
-      var table = h('table', { class: 'pw-comp-table', 'aria-label': 'Конкуренты в нише' });
-      var thead = h('thead');
-      var headRow = h('tr');
-      ['Канал', 'Подписчики', 'Просмотры', 'Видео', ''].forEach(function(col) {
-        headRow.appendChild(h('th', {}, col));
+      ownSubs = ownSubs || 0;
+ 
+      var peers   = competitors.filter(function(c) { return c.segment === 'peer'; });
+      var leaders = competitors.filter(function(c) { return c.segment === 'leader'; });
+ 
+      // Обратная совместимость со старым кешем без поля segment
+      if (!peers.length && !leaders.length) {
+        peers = competitors;
+      }
+ 
+      // ── Секция 1: Ближайшие конкуренты ──
+      if (peers.length) {
+        var peersSection = h('div', { class: 'pw-comp-section' });
+        var peersTitle = h('div', { class: 'pw-comp-section-title' });
+        peersTitle.appendChild(document.createTextNode('Ближайшие конкуренты'));
+        peersTitle.appendChild(h('span', { class: 'pw-comp-section-badge pw-comp-badge-peer' },
+          peers.length + ' ' + (peers.length === 1 ? 'канал' : 'канала')));
+        peersSection.appendChild(peersTitle);
+        peers.forEach(function(comp) {
+          peersSection.appendChild(buildCompetitorCard(comp, ownSubs));
+        });
+        contentArea.appendChild(peersSection);
+      }
+ 
+      // ── Секция 2: Флагманы ниши ──
+      if (leaders.length) {
+        var leadersSection = h('div', { class: 'pw-comp-section' });
+        var leadersTitle = h('div', { class: 'pw-comp-section-title' });
+        leadersTitle.appendChild(document.createTextNode('Флагманы ниши'));
+        leadersTitle.appendChild(h('span', { class: 'pw-comp-section-badge pw-comp-badge-leader' },
+          'К чему стремиться'));
+        leadersSection.appendChild(leadersTitle);
+        leaders.forEach(function(comp) {
+          leadersSection.appendChild(buildCompetitorCard(comp, ownSubs));
+        });
+        contentArea.appendChild(leadersSection);
+      }
+ 
+      // ── Секция 3: Тренды ниши — топ-6 видео по просмотрам ──
+      var allVideos = [];
+      competitors.forEach(function(comp) {
+        (comp.top_videos || []).forEach(function(v) {
+          allVideos.push(Object.assign({}, v, { channel_name: comp.title }));
+        });
       });
-      thead.appendChild(headRow);
-      table.appendChild(thead);
+      allVideos.sort(function(a, b) { return (b.views || 0) - (a.views || 0); });
+      var topVideos = allVideos.slice(0, 6);
  
-      var tbody = h('tbody');
-      competitors.forEach(function(ch) {
-        var tr = h('tr');
+      if (topVideos.length) {
+        var trendsSection = h('div', { class: 'pw-comp-section' });
+        var trendsTitle = h('div', { class: 'pw-comp-section-title' });
+        trendsTitle.appendChild(document.createTextNode('Что залетает в нише'));
+        trendsTitle.appendChild(h('span', { class: 'pw-comp-section-badge pw-comp-badge-trends' },
+          'Топ видео конкурентов'));
+        trendsSection.appendChild(trendsTitle);
  
-        // Колонка: аватар + название + хендл
-        var chCell = h('div', { class: 'pw-comp-ch-cell' });
-        if (ch.thumb) {
-          chCell.appendChild(h('img', { class: 'pw-comp-avatar', src: ch.thumb, alt: '' }));
-        } else {
-          chCell.appendChild(h('div', { class: 'pw-comp-av-ph' },
-            (ch.title || '?').substring(0, 2).toUpperCase()));
-        }
-        var chInfo = h('div');
-        chInfo.appendChild(h('div', { class: 'pw-comp-ch-name', title: ch.title }, ch.title || ''));
-        if (ch.handle) {
-          chInfo.appendChild(h('div', { class: 'pw-comp-ch-handle' },
-            '@' + ch.handle.replace(/^@/, '')));
-        }
-        chCell.appendChild(chInfo);
-        var chTd = h('td'); chTd.appendChild(chCell); tr.appendChild(chTd);
- 
-        // Числовые колонки
-        tr.appendChild(h('td', { class: 'pw-comp-num' }, ch.subscriber_fmt || '—'));
-        tr.appendChild(h('td', { class: 'pw-comp-num' }, ch.view_count_fmt || '—'));
-        tr.appendChild(h('td', { class: 'pw-comp-num' }, String(ch.video_count || '—')));
- 
-        // Ссылка
-        var linkTd = h('td');
-        if (ch.url) {
-          linkTd.appendChild(h('a', { class: 'pw-comp-link', href: ch.url,
-            target: '_blank', rel: 'noopener' }, 'Открыть →'));
-        }
-        tr.appendChild(linkTd);
-        tbody.appendChild(tr);
-      });
-      table.appendChild(tbody);
-      contentArea.appendChild(table);
+        var trendsGrid = h('div', { class: 'pw-comp-trends-grid' });
+        topVideos.forEach(function(v) {
+          var card = h('div', { class: 'pw-comp-trend-card' });
+          card.addEventListener('click', function() {
+            window.open(v.url, '_blank', 'noopener');
+          });
+          card.appendChild(h('img', {
+            class: 'pw-comp-trend-thumb', src: v.thumb || '', alt: '', loading: 'lazy'
+          }));
+          var body = h('div', { class: 'pw-comp-trend-body' });
+          body.appendChild(h('div', { class: 'pw-comp-trend-title' }, v.title || ''));
+          var tMeta = h('div', { class: 'pw-comp-trend-meta' });
+          tMeta.appendChild(h('span', {}, (v.views_fmt || '—') + ' просм.'));
+          tMeta.appendChild(h('span', { class: 'pw-comp-trend-channel' }, v.channel_name || ''));
+          body.appendChild(tMeta);
+          card.appendChild(body);
+          trendsGrid.appendChild(card);
+        });
+        trendsSection.appendChild(trendsGrid);
+        contentArea.appendChild(trendsSection);
+      }
     }
  
     // ── Blur-заглушка + overlay с формой доната ────────────────────────────
@@ -1360,7 +1513,7 @@
           if (!data.success || !data.competitors) {
             throw new Error(data.message || 'Не удалось получить данные');
           }
-          renderCompetitors(data.competitors);
+          renderCompetitors(data.competitors, data.own_subs || 0);
           noticeEl.className = 'pw-comp-notice ok';
           noticeEl.textContent = '✅ Донат $' + amount.toFixed(2) + ' списан с баланса. Спасибо!';
           noticeEl.style.display = 'block';

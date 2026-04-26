@@ -322,6 +322,38 @@
       '.pw-aislop-sig-detail{font-size:11px;color:#888;line-height:1.5}',
       '.pw-blocks-4{grid-template-columns:repeat(4,minmax(0,1fr))!important}',
       '@media(max-width:640px){.pw-blocks-4{grid-template-columns:repeat(2,minmax(0,1fr))!important}}',
+      /* Sprint v5.2: Competitors block */
+      '.pw-comp-wrap{margin-top:20px}',
+      '.pw-comp-label{font-size:11px;font-weight:600;color:#bbb;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px}',
+      '.pw-comp-gate{position:relative;border-radius:10px;overflow:hidden}',
+      '.pw-comp-blur{filter:blur(5px);user-select:none;pointer-events:none}',
+      '.pw-comp-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:rgba(255,255,255,.85);backdrop-filter:blur(2px);padding:24px;text-align:center}',
+      '.pw-comp-overlay-title{font-size:15px;font-weight:600;color:#1a1a1a;line-height:1.4}',
+      '.pw-comp-overlay-sub{font-size:12px;color:#888;line-height:1.5;max-width:380px}',
+      '.pw-comp-donate-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center}',
+      '.pw-comp-donate-amounts{display:flex;gap:6px}',
+      '.pw-comp-amt-btn{height:32px;padding:0 12px;border-radius:6px;border:1px solid #e8e8e8;background:#fff;font-size:13px;font-weight:500;color:#555;cursor:pointer}',
+      '.pw-comp-amt-btn:hover,.pw-comp-amt-btn.active{background:#E8192C;border-color:#E8192C;color:#fff}',
+      '.pw-comp-input-wrap{display:flex}',
+      '.pw-comp-prefix{height:32px;padding:0 8px;background:#f9f9f9;border:1px solid #e8e8e8;border-right:none;border-radius:6px 0 0 6px;font-size:13px;color:#aaa;display:flex;align-items:center}',
+      '.pw-comp-input{height:32px;width:70px;padding:0 8px;border:1px solid #e8e8e8;border-radius:0 6px 6px 0;font-size:13px;outline:none}',
+      '.pw-comp-submit-btn{height:36px;padding:0 18px;background:#E8192C;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}',
+      '.pw-comp-submit-btn:disabled{opacity:.5;cursor:default}',
+      '.pw-comp-overlay-err{font-size:12px;color:#dc2626}',
+      '.pw-comp-table{width:100%;border-collapse:collapse;font-size:13px}',
+      '.pw-comp-table th{font-size:10px;font-weight:600;color:#bbb;text-align:left;padding:0 8px 10px;border-bottom:1px solid #f0f0f0;text-transform:uppercase;letter-spacing:.04em}',
+      '.pw-comp-table td{padding:10px 8px;border-bottom:1px solid #f7f7f7;vertical-align:middle}',
+      '.pw-comp-table tr:last-child td{border-bottom:none}',
+      '.pw-comp-ch-cell{display:flex;align-items:center;gap:10px}',
+      '.pw-comp-avatar{width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0}',
+      '.pw-comp-av-ph{width:32px;height:32px;border-radius:50%;background:#fce7f3;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#9d174d;flex-shrink:0}',
+      '.pw-comp-ch-name{font-size:12px;font-weight:500;color:#1a1a1a;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+      '.pw-comp-ch-handle{font-size:11px;color:#aaa}',
+      '.pw-comp-num{font-size:13px;font-weight:500;color:#1a1a1a}',
+      '.pw-comp-link{font-size:11px;color:#E8192C;text-decoration:none}',
+      '.pw-comp-notice{text-align:center;margin-top:8px;font-size:12px}',
+      '.pw-comp-notice.ok{color:#16a34a}',
+      '.pw-comp-notice.err{color:#dc2626}',
     ].join('');
     document.head.appendChild(style);
   }
@@ -1141,6 +1173,210 @@
   // —— Полный отчёт (оплачен) ———————————————————————————————————————————————————————————————
  
   // —— Sprint v5.0: Вкладка «Ниша» ——————————————————————————————————————————————————————————
+  // —— Sprint v5.2: Блок конкурентов в нише ————————————————————————————————————
+ 
+  function buildCompetitorsBlock(auditId, niche_name) {
+    var wrap = h('div', { class: 'pw-comp-wrap' });
+    wrap.appendChild(h('div', { class: 'pw-comp-label' },
+      'Конкуренты в нише' + (niche_name ? ' · ' + niche_name : '')));
+ 
+    var contentArea = h('div', { class: 'pw-comp-gate' });
+    var noticeEl = h('div', { class: 'pw-comp-notice', style: 'display:none' });
+    wrap.appendChild(contentArea);
+    wrap.appendChild(noticeEl);
+ 
+    // ── Таблица с реальными данными ───────────────────────────────────────
+    function renderCompetitors(competitors) {
+      contentArea.innerHTML = '';
+      contentArea.className = '';
+      var table = h('table', { class: 'pw-comp-table', 'aria-label': 'Конкуренты в нише' });
+      var thead = h('thead');
+      var headRow = h('tr');
+      ['Канал', 'Подписчики', 'Просмотры', 'Видео', ''].forEach(function(col) {
+        headRow.appendChild(h('th', {}, col));
+      });
+      thead.appendChild(headRow);
+      table.appendChild(thead);
+ 
+      var tbody = h('tbody');
+      competitors.forEach(function(ch) {
+        var tr = h('tr');
+ 
+        // Колонка: аватар + название + хендл
+        var chCell = h('div', { class: 'pw-comp-ch-cell' });
+        if (ch.thumb) {
+          chCell.appendChild(h('img', { class: 'pw-comp-avatar', src: ch.thumb, alt: '' }));
+        } else {
+          chCell.appendChild(h('div', { class: 'pw-comp-av-ph' },
+            (ch.title || '?').substring(0, 2).toUpperCase()));
+        }
+        var chInfo = h('div');
+        chInfo.appendChild(h('div', { class: 'pw-comp-ch-name', title: ch.title }, ch.title || ''));
+        if (ch.handle) {
+          chInfo.appendChild(h('div', { class: 'pw-comp-ch-handle' },
+            '@' + ch.handle.replace(/^@/, '')));
+        }
+        chCell.appendChild(chInfo);
+        var chTd = h('td'); chTd.appendChild(chCell); tr.appendChild(chTd);
+ 
+        // Числовые колонки
+        tr.appendChild(h('td', { class: 'pw-comp-num' }, ch.subscriber_fmt || '—'));
+        tr.appendChild(h('td', { class: 'pw-comp-num' }, ch.view_count_fmt || '—'));
+        tr.appendChild(h('td', { class: 'pw-comp-num' }, String(ch.video_count || '—')));
+ 
+        // Ссылка
+        var linkTd = h('td');
+        if (ch.url) {
+          linkTd.appendChild(h('a', { class: 'pw-comp-link', href: ch.url,
+            target: '_blank', rel: 'noopener' }, 'Открыть →'));
+        }
+        tr.appendChild(linkTd);
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      contentArea.appendChild(table);
+    }
+ 
+    // ── Blur-заглушка + overlay с формой доната ────────────────────────────
+    function renderGate() {
+      contentArea.innerHTML = '';
+      contentArea.className = 'pw-comp-gate';
+ 
+      // Размытая заглушка — 5 строк-скелетонов имитируют таблицу
+      var blurDiv = h('div', { class: 'pw-comp-blur' });
+      var fakeTable = h('table', { class: 'pw-comp-table', style: 'width:100%' });
+      var fth = h('thead'), fhr = h('tr');
+      ['Канал', 'Подписчики', 'Просмотры', 'Видео', ''].forEach(function(c) {
+        fhr.appendChild(h('th', {}, c));
+      });
+      fth.appendChild(fhr); fakeTable.appendChild(fth);
+      var ftb = h('tbody');
+      for (var i = 0; i < 5; i++) {
+        var ftr = h('tr');
+        var fchTd = h('td');
+        var fchCell = h('div', { class: 'pw-comp-ch-cell' });
+        fchCell.appendChild(h('div', { class: 'pw-comp-av-ph', style: 'background:#eee' }, ''));
+        var fInfo = h('div');
+        fInfo.appendChild(h('div', { style: 'background:#eee;border-radius:4px;width:120px;height:11px;margin-bottom:5px' }, ''));
+        fInfo.appendChild(h('div', { style: 'background:#f5f5f5;border-radius:4px;width:80px;height:9px' }, ''));
+        fchCell.appendChild(fInfo); fchTd.appendChild(fchCell); ftr.appendChild(fchTd);
+        ['70px', '80px', '40px', '50px'].forEach(function(w) {
+          var td = h('td');
+          td.appendChild(h('div', { style: 'background:#eee;border-radius:4px;width:' + w + ';height:11px' }, ''));
+          ftr.appendChild(td);
+        });
+        ftb.appendChild(ftr);
+      }
+      fakeTable.appendChild(ftb); blurDiv.appendChild(fakeTable);
+      contentArea.appendChild(blurDiv);
+ 
+      // Overlay поверх blur
+      var overlay = h('div', { class: 'pw-comp-overlay' });
+      overlay.appendChild(h('div', { style: 'font-size:30px' }, '🏆'));
+      overlay.appendChild(h('div', { class: 'pw-comp-overlay-title' },
+        'Узнайте кто ваши конкуренты в нише'));
+      overlay.appendChild(h('div', { class: 'pw-comp-overlay-sub' },
+        'Найдём 5 похожих каналов через YouTube API и покажем их метрики. ' +
+        'Поддержите PayWay донатом с баланса — это помогает нам покрывать расходы на API.'));
+ 
+      var donateRow = h('div', { class: 'pw-comp-donate-row' });
+      var amounts = h('div', { class: 'pw-comp-donate-amounts' });
+      var selectedAmt = 0;
+      var amtInput;
+ 
+      [1, 2, 5].forEach(function(val) {
+        var btn = h('button', { class: 'pw-comp-amt-btn' }, '$' + val);
+        btn.addEventListener('click', function() {
+          amounts.querySelectorAll('.pw-comp-amt-btn').forEach(function(b) { b.classList.remove('active'); });
+          btn.classList.add('active');
+          selectedAmt = val;
+          if (amtInput) { amtInput.value = val; updateBtnText(); }
+        });
+        amounts.appendChild(btn);
+      });
+      donateRow.appendChild(amounts);
+ 
+      var inputWrap = h('div', { class: 'pw-comp-input-wrap' });
+      inputWrap.appendChild(h('div', { class: 'pw-comp-prefix' }, '$'));
+      amtInput = document.createElement('input');
+      amtInput.type = 'number';
+      amtInput.className = 'pw-comp-input';
+      amtInput.placeholder = '0';
+      amtInput.min = '0.01';
+      amtInput.step = '0.01';
+      inputWrap.appendChild(amtInput);
+      donateRow.appendChild(inputWrap);
+ 
+      var submitBtn = h('button', { class: 'pw-comp-submit-btn' },
+        'Отправить донат с баланса');
+ 
+      function updateBtnText() {
+        var amt = parseFloat(amtInput.value) || selectedAmt;
+        submitBtn.textContent = amt > 0
+          ? 'Отправить донат с баланса — $' + amt.toFixed(2)
+          : 'Отправить донат с баланса';
+      }
+      amtInput.addEventListener('input', updateBtnText);
+ 
+      donateRow.appendChild(submitBtn);
+      overlay.appendChild(donateRow);
+ 
+      var overlayErr = h('div', { class: 'pw-comp-overlay-err' });
+      overlay.appendChild(overlayErr);
+      contentArea.appendChild(overlay);
+ 
+      // ── Обработчик кнопки: донат → запрос конкурентов ─────────────────
+      submitBtn.addEventListener('click', function() {
+        var amount = parseFloat(amtInput.value) || selectedAmt;
+        if (!amount || amount <= 0) {
+          overlayErr.textContent = 'Введите сумму больше нуля';
+          return;
+        }
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Отправляем донат...';
+        overlayErr.textContent = '';
+        var nonce = getBestNonce();
+ 
+        // Шаг 1: POST /payway/v1/donate
+        fetch('/wp-json/payway/v1/donate', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce },
+          body: JSON.stringify({ amount: amount, message: 'Анализ конкурентов' })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (!d.success) throw new Error(d.message || 'Ошибка доната');
+          submitBtn.textContent = 'Ищем конкурентов...';
+          // Шаг 2: POST /payway/v1/audit/{id}/competitors
+          return fetch('/wp-json/payway/v1/audit/' + auditId + '/competitors', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce }
+          });
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (!data.success || !data.competitors) {
+            throw new Error(data.message || 'Не удалось получить данные');
+          }
+          renderCompetitors(data.competitors);
+          noticeEl.className = 'pw-comp-notice ok';
+          noticeEl.textContent = '✅ Донат $' + amount.toFixed(2) + ' списан с баланса. Спасибо!';
+          noticeEl.style.display = 'block';
+        })
+        .catch(function(err) {
+          submitBtn.disabled = false;
+          updateBtnText();
+          overlayErr.textContent = err.message || 'Ошибка. Попробуйте ещё раз.';
+        });
+      });
+    }
+ 
+    renderGate(); // начальное состояние — blur + overlay
+    return wrap;
+  }
+ 
   function buildNicheTab(full) {
     var na = full && full.niche_analysis;
     var cm = (full && full.channel_metrics) || {};
@@ -1236,6 +1472,13 @@
       var gBox = h('div', { class: 'pw-niche-growth' });
       gBox.innerHTML = '<strong>Потенциал роста:</strong> ' + na.growth_potential;
       wrap.appendChild(gBox);
+    }
+ 
+    // Блок Е: Конкуренты в нише (Sprint v5.2)
+    var auditId = getAuditIdFromUrl() || (getStore() && getStore().auditId) || 0;
+    var nicheName = (na && na.niche_name) || '';
+    if (auditId) {
+      wrap.appendChild(buildCompetitorsBlock(auditId, nicheName));
     }
  
     return wrap;

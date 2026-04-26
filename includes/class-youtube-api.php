@@ -4,6 +4,7 @@
  * Поля строго по ТЗ §4.3
  * Sprint v5.1: добавлен description в videos_list()
  * Sprint v5.2: добавлены search_channels() и get_channels_data() для поиска конкурентов
+ * Sprint v5.3: get_channel_top_videos() + format_number_public() для топ-видео конкурентов
  */
 class PW_YouTube_API {
  
@@ -230,6 +231,72 @@ class PW_YouTube_API {
         }
  
         return $data['items'] ?? [];
+    }
+ 
+ 
+    /**
+     * get_channel_top_videos — топ N видео канала по просмотрам
+     * Стоимость: playlistItems.list (1 квота) + videos.list (1 квота) = 2 квоты на канал
+     * Sprint v5.3: для блока «Тренды ниши» в конкурентном анализе
+     */
+    public function get_channel_top_videos( string $channel_id, int $top_n = 3 ): array {
+        if ( empty( $channel_id ) ) return [];
+ 
+        // Шаг 1: получить uploads playlist_id
+        $params  = [
+            'part' => 'contentDetails',
+            'id'   => $channel_id,
+            'key'  => $this->api_key,
+        ];
+        $ch_data = $this->make_request( 'channels', $params );
+        if ( is_wp_error( $ch_data ) || empty( $ch_data['items'] ) ) return [];
+ 
+        $uploads = $ch_data['items'][0]['contentDetails']['relatedPlaylists']['uploads'] ?? '';
+        if ( ! $uploads ) return [];
+ 
+        // Шаг 2: последние 15 видео из uploads playlist (1 квота)
+        $video_ids = $this->get_playlist_video_ids( $uploads, 15 );
+        if ( empty( $video_ids ) || is_wp_error( $video_ids ) ) return [];
+ 
+        // Шаг 3: статистика + snippet видео (1 квота — батч)
+        $videos_raw = $this->videos_list( $video_ids );
+        if ( empty( $videos_raw ) || is_wp_error( $videos_raw ) ) return [];
+ 
+        // Шаг 4: сортируем по viewCount DESC, берём топ N
+        usort( $videos_raw, function ( $a, $b ) {
+            return ( $b['viewCount'] ?? 0 ) - ( $a['viewCount'] ?? 0 );
+        } );
+        $top = array_slice( $videos_raw, 0, $top_n );
+ 
+        return array_map( function ( $v ) {
+            $views = (int) ( $v['viewCount'] ?? 0 );
+            return [
+                'id'        => $v['id'],
+                'title'     => mb_substr( $v['title'] ?? '', 0, 80 ),
+                'views'     => $views,
+                'views_fmt' => $this->format_number( $views ),
+                'published' => $v['publishedAt'] ?? '',
+                'url'       => 'https://youtube.com/watch?v=' . $v['id'],
+                'thumb'     => 'https://i.ytimg.com/vi/' . $v['id'] . '/mqdefault.jpg',
+            ];
+        }, $top );
+    }
+ 
+    /**
+     * format_number_public — публичная обёртка над приватным format_number()
+     * Используется в get_channel_top_videos() и может вызываться извне
+     */
+    public function format_number_public( int $n ): string {
+        return $this->format_number( $n );
+    }
+ 
+    /**
+     * format_number — форматирует число в читаемый вид: 1250000 → 1.2M, 45000 → 45k
+     */
+    private function format_number( int $n ): string {
+        if ( $n >= 1_000_000 ) return round( $n / 1_000_000, 1 ) . 'M';
+        if ( $n >= 1_000 )     return round( $n / 1_000 )       . 'k';
+        return (string) $n;
     }
  
     public function parse_duration( $duration ) {

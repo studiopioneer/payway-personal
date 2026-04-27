@@ -3,8 +3,8 @@
 Plugin Name: Payway - личный кабинет
 Plugin URI:  http://yourwebsite.com/my-custom-plugin
 Description: Добавляет авторизацию и личный кабинет пользователя
-Version:     8.0
-Author:      Rus, Alex Kovalev
+Version:     8.5
+Author:      Geo, Ilia Sukharev
 Author URI:  null
 License:     GPL2
 */
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
  
-define( 'PAYWAY_PLUGIN_VERSION',  '8.0' );
+define( 'PAYWAY_PLUGIN_VERSION',  '8.5' );
 define( 'PAYWAY_PLUGIN_FILE',     __FILE__ );
 define( 'PAYWAY_ABSPATH',         dirname( __FILE__ ) );
 define( 'PAYWAY_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );

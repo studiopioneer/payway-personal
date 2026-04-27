@@ -1297,13 +1297,7 @@
       statsRow.appendChild(statItem('Видео',      String(comp.video_count || 0), '', ''));
       card.appendChild(statsRow);
  
-      // Топ-видео (до 2)
-      var videos = Array.isArray(comp.top_videos) ? comp.top_videos.slice(0, 2) : [];
-      if (videos.length) {
-        var videosWrap = h('div', { class: 'pw-comp-videos' });
-        videos.forEach(function(v) { videosWrap.appendChild(buildVideoCard(v)); });
-        card.appendChild(videosWrap);
-      }
+      // top_videos убраны из карточки — они показываются в секции "Что залетает в нише"
       return card;
     }
  

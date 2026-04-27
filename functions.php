@@ -1,7 +1,7 @@
 <?php
 /**
  * Functions
- * @author Alexander Kovalev <alex.kovalevv@gmail.com>
+ * @author Ilya Sukharev <studiopioneer@gmail.com>
  * @copyright (c) 15.09.2024, CreativeMotion
  * @version 1.0
  */

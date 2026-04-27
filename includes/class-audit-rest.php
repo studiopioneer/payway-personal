@@ -578,11 +578,15 @@ class PW_Audit_REST {
         $topic_categories = $preview['topic_categories'] ?? [];
         $country          = $preview['country'] ?? '';
  
+        // Берём niche_name из report_full (AI-вычисленная ниша — точнее topic_categories)
+        $full_data  = json_decode( $audit->report_full ?? '{}', true ) ?: [];
+        $niche_name = $full_data['niche_analysis']['niche_name'] ?? '';
+ 
         // Собственный channel_id аудита — исключаем из конкурентов
         $own_channel_id = $audit->channel_id ?? '';
  
         // Строим поисковый запрос
-        $niche_query = $this->build_niche_query( $topic_categories, $country );
+        $niche_query = $this->build_niche_query( $topic_categories, $country, $niche_name );
  
         // search.list: 8 каналов (100 квот)
         $search_results = $this->yt_api->search_channels( $niche_query, 8 );
@@ -675,14 +679,19 @@ class PW_Audit_REST {
     /**
      * Строит поисковый запрос для ниши из topic_categories и country
      */
-    private function build_niche_query( array $topics, string $country ): string {
-        $niches = [];
-        foreach ( $topics as $url ) {
-            $parts = explode( '/', rtrim( $url, '/' ) );
-            $niche = str_replace( '_', ' ', end( $parts ) );
-            if ( $niche ) $niches[] = $niche;
+    private function build_niche_query( array $topics, string $country, string $niche_name = '' ): string {
+        // Приоритет: AI-вычисленная ниша точнее, чем topic_categories из YouTube
+        if ( $niche_name !== '' ) {
+            $query = $niche_name;
+        } else {
+            $niches = [];
+            foreach ( $topics as $url ) {
+                $parts = explode( '/', rtrim( $url, '/' ) );
+                $niche = str_replace( '_', ' ', end( $parts ) );
+                if ( $niche ) $niches[] = $niche;
+            }
+            $query = implode( ' ', array_slice( $niches, 0, 2 ) );
         }
-        $query = implode( ' ', array_slice( $niches, 0, 2 ) );
         if ( in_array( $country, [ 'RU', 'BY', 'KZ', 'UA' ], true ) ) {
             $query .= ' канал';
         }
